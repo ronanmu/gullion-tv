@@ -117,3 +117,46 @@ def icon_row(ref, video_height, description):
 	if kind:
 		names.append(kind)
 	return names
+
+
+_POLARISATION = {0: "H", 1: "V", 2: "L", 3: "R"}
+
+
+def _percent(value):
+	return "%d%%" % round(value * 100 / 65535.0) if value is not None and value >= 0 else ""
+
+
+def signal_details(status, transponder):
+	"""[(label, value)] from a tuner's frontend status and transponder data, for the INFO
+	panel. Anything the tuner doesn't report is left out."""
+	status, transponder = status or {}, transponder or {}
+	lines = []
+	quality = _percent(status.get("tuner_signal_quality"))
+	if quality:
+		lines.append(("Quality", quality))
+	snr_db = status.get("tuner_signal_quality_db")
+	if snr_db is not None and snr_db > 0:
+		lines.append(("SNR", "%.1f dB" % (snr_db / 100.0)))
+	power = _percent(status.get("tuner_signal_power"))
+	if power:
+		lines.append(("Power", power))
+	errors = status.get("tuner_bit_error_rate")
+	if errors is not None and errors >= 0:
+		lines.append(("Errors", str(errors)))
+	tuner = status.get("tuner_number", transponder.get("tuner_number"))
+	if tuner is not None and tuner >= 0:
+		lines.append(("Tuner", chr(ord("A") + int(tuner))))
+	kind = str(transponder.get("tuner_type", ""))
+	frequency = transponder.get("frequency")
+	if frequency:
+		if "S" in kind and "T" not in kind:
+			# Satellite: kHz, with polarisation and symbol rate, as Freesat lists them.
+			text = "%d %s" % (round(frequency / 1000.0), _POLARISATION.get(transponder.get("polarization"), ""))
+			lines.append(("Frequency", text.strip()))
+			symbol_rate = transponder.get("symbol_rate")
+			if symbol_rate:
+				lines.append(("Symbol rate", "%d" % round(symbol_rate / 1000.0)))
+		else:
+			# Terrestrial frequencies come in Hz, cable in kHz.
+			lines.append(("Frequency", "%d MHz" % round(frequency / (1000000.0 if frequency > 10000000 else 1000.0))))
+	return lines

@@ -2,7 +2,7 @@
 """INFO on live TV: what's on now on this channel, and the next few programmes."""
 import time
 
-from enigma import iServiceInformation
+from enigma import eTimer, iServiceInformation
 from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.Pixmap import Pixmap
@@ -17,6 +17,8 @@ from ..ui import icons, scale, tiles
 COMING_UP = 5
 ROW_H = 56
 ICON_SLOTS = 6
+SIGNAL_LINES = 7
+SIGNAL_Y, SIGNAL_H = 256, 30
 # The programme's icons, right-aligned on the "On now" line.
 ICON_RIGHT, LINE_Y = 1140, 28
 
@@ -24,6 +26,15 @@ ICON_RIGHT, LINE_Y = 1140, 28
 def _icons_skin():
 	return "".join('<widget name="icon%d" position="%d,%d" size="40,40" alphatest="blend" zPosition="2" />'
 		% (slot, ICON_RIGHT - 40 - slot * 52, LINE_Y) for slot in range(ICON_SLOTS))
+
+
+def _signal_skin():
+	"""The tuner's details under the picon: a label on the left, its value on the right."""
+	return "".join(
+		'<widget name="signal%d_label" position="30,%d" size="120,%d" font="Regular;22" valign="center" foregroundColor="%s" transparent="1" />'
+		'<widget name="signal%d" position="150,%d" size="100,%d" font="Regular;22" halign="right" valign="center" foregroundColor="%s" transparent="1" />'
+		% (i, SIGNAL_Y + i * SIGNAL_H, SIGNAL_H, theme.TEXT_MUTED, i, SIGNAL_Y + i * SIGNAL_H, SIGNAL_H, theme.TEXT)
+		for i in range(SIGNAL_LINES))
 
 
 def _clock(moment):
@@ -36,6 +47,7 @@ class ChannelInfo(Screen):
 		<widget name="picon_fallback" position="30,30" size="220,132" font="Regular;30" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(card)s" zPosition="1" />
 		<widget name="picon" position="30,30" size="220,132" alphatest="blend" zPosition="2" />
 		<widget name="channel" position="30,176" size="220,70" font="Regular;26" halign="center" foregroundColor="%(muted)s" transparent="1" />
+		%(signal)s
 
 		<eLabel text="On now" position="280,30" size="400,36" font="Regular;26" valign="center" foregroundColor="%(muted)s" transparent="1" />
 		%(icons)s
@@ -50,7 +62,7 @@ class ChannelInfo(Screen):
 		%(rows)s
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "card": theme.CARD,
-		"accent": theme.ACCENT, "divider": theme.DIVIDER, "icons": _icons_skin(),
+		"accent": theme.ACCENT, "divider": theme.DIVIDER, "icons": _icons_skin(), "signal": _signal_skin(),
 		"rows": "".join(
 			'<widget name="next%d_time" position="1220,%d" size="110,%d" font="Regular;30" valign="center" foregroundColor="%s" transparent="1" />'
 			'<widget name="next%d" position="1340,%d" size="430,%d" font="Regular;30" valign="center" noWrap="1" foregroundColor="%s" transparent="1" />'
@@ -67,6 +79,9 @@ class ChannelInfo(Screen):
 			self[name] = Label()
 		for slot in range(ICON_SLOTS):
 			self["icon%d" % slot] = Pixmap()
+		for i in range(SIGNAL_LINES):
+			self["signal%d_label" % i] = Label()
+			self["signal%d" % i] = Label()
 		for i in range(COMING_UP):
 			self["next%d_time" % i] = Label()
 			self["next%d" % i] = Label()
@@ -80,6 +95,11 @@ class ChannelInfo(Screen):
 			"info": self.close,
 		}, -1)
 		self.onLayoutFinish.append(self.fill)
+		# The signal changes all the time; the programme details don't.
+		self.signal_timer = eTimer()
+		self.signal_timer.callback.append(self.draw_signal)
+		self.onLayoutFinish.append(self.start_signal)
+		self.onClose.append(self.signal_timer.stop)
 
 	def channel(self):
 		key = serviceinfo.key(self.ref)
@@ -109,10 +129,31 @@ class ChannelInfo(Screen):
 			self["description"].setText(serviceinfo.split_codes(current.description)[0])
 			self["progress"].setValue(int((now - current.begin) * 100 / max(1, current.duration)))
 		self.draw_icons(current.description if current else "")
+		self.draw_signal()
 		for i in range(COMING_UP):
 			event = later[i] if i < len(later) else None
 			self["next%d_time" % i].setText(_clock(event.begin) if event else "")
 			self["next%d" % i].setText(event.title if event else "")
+
+	def start_signal(self):
+		# A method, not a lambda: enigma2 runs anything else in onLayoutFinish as code text.
+		self.signal_timer.start(1000, False)
+
+	def draw_signal(self):
+		service = self.session.nav.getCurrentService()
+		frontend = service and hasattr(service, "frontendInfo") and service.frontendInfo()
+		status = transponder = None
+		if frontend:
+			try:
+				status = frontend.getFrontendStatus()
+				transponder = frontend.getTransponderData(True)
+			except Exception:
+				pass
+		lines = serviceinfo.signal_details(status, transponder)
+		for i in range(SIGNAL_LINES):
+			label, value = lines[i] if i < len(lines) else ("", "")
+			self["signal%d_label" % i].setText(label)
+			self["signal%d" % i].setText(value)
 
 	def draw_icons(self, description):
 		"""Packed from the right: ... subtitles, audio description, hd, then the delivery icon."""

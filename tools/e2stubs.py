@@ -199,6 +199,16 @@ class InfoBarEPG(object):
 		self.opened = "stock info"
 
 
+class InfoBarShowHide(object):
+	STATE_HIDDEN, STATE_SHOWN = 0, 2
+
+	def toggleShow(self):
+		self.toggled = True
+
+	def hide(self):
+		self._InfoBarShowHide__state = self.STATE_HIDDEN
+
+
 class MoviePlayer(Screen):
 	def __init__(self, session, service, *args):
 		Screen.__init__(self, session)
@@ -256,7 +266,7 @@ def install():
 	_module("ServiceReference", ServiceReference=lambda ref: types.SimpleNamespace(
 		getServiceName=lambda: getattr(ref, "name", None) or SERVICE_NAMES.get(ref, "")))
 	_module("Screens.Screen", Screen=Screen)
-	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu, InfoBarExtensions=InfoBarExtensions, InfoBarEPG=InfoBarEPG)
+	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu, InfoBarExtensions=InfoBarExtensions, InfoBarEPG=InfoBarEPG, InfoBarShowHide=InfoBarShowHide)
 	_module("Screens.InfoBar", InfoBar=type("InfoBar", (), {"instance": None}), MoviePlayer=MoviePlayer)
 	_module("Plugins.Plugin", PluginDescriptor=type("PluginDescriptor", (Obj,), {"WHERE_SESSIONSTART": 1, "WHERE_PLUGINMENU": 2}))
 	sys.path.insert(0, os.path.abspath(PLUGIN_PARENT))

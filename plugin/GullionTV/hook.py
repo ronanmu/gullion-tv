@@ -16,6 +16,7 @@ else:
 	_METHOD, _ACTION = "showMainMenu", "showMenu"
 _original_main_menu = getattr(InfoBarGenerics.InfoBarMenu, _METHOD)
 _original_info = getattr(getattr(InfoBarGenerics, "InfoBarEPG", None), "InfoPressed", None)
+_original_toggle = getattr(getattr(InfoBarGenerics, "InfoBarShowHide", None), "toggleShow", None)
 
 
 def _gullion_main_menu(self):
@@ -34,11 +35,25 @@ def _gullion_info(self):
 		_original_info(self)
 
 
+def _gullion_toggle(self):
+	"""OK shows the banner; OK again, while it's up, opens the same panel as INFO."""
+	shown = getattr(self, "_InfoBarShowHide__state", None) == getattr(self, "STATE_SHOWN", object())
+	if config.plugins.gulliontv.enabled.value and shown and self is _infobar():
+		self.hide()
+		from .tv.nowinfo import ChannelInfo
+		self.session.open(ChannelInfo)
+	else:
+		_original_toggle(self)
+
+
 def install():
 	setattr(InfoBarGenerics.InfoBarMenu, _METHOD, _gullion_main_menu)
 	if _original_info is not None:
 		InfoBarGenerics.InfoBarEPG.InfoPressed = _gullion_info
 		rebind(_original_info, "InfoPressed")
+	if _original_toggle is not None:
+		InfoBarGenerics.InfoBarShowHide.toggleShow = _gullion_toggle
+		rebind(_original_toggle, "toggleShow")
 	# If InfoBar already exists, its ActionMap holds a bound copy of the old
 	# method, so point the action at the patched one.
 	infobar = _infobar()

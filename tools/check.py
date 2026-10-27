@@ -69,6 +69,25 @@ assert opened == ["ChannelInfo"], opened
 config.plugins.gulliontv.enabled.value = False
 e2stubs.InfoBarEPG.InfoPressed(info_bar)
 assert info_bar.opened == "stock info"
+# OK twice on live TV: the first shows the banner, the second opens the INFO panel.
+config.plugins.gulliontv.enabled.value = True
+live = e2stubs.InfoBarShowHide()
+live.session = info_bar.session
+import Screens.InfoBar  # noqa: E402  the stub
+Screens.InfoBar.InfoBar.instance = live
+opened[:] = []
+live._InfoBarShowHide__state = live.STATE_HIDDEN
+e2stubs.InfoBarShowHide.toggleShow(live)
+assert live.toggled and opened == [], "OK with the banner hidden shows it as normal"
+live.toggled = False
+live._InfoBarShowHide__state = live.STATE_SHOWN
+e2stubs.InfoBarShowHide.toggleShow(live)
+assert opened == ["ChannelInfo"] and not live.toggled and live._InfoBarShowHide__state == live.STATE_HIDDEN
+player = e2stubs.InfoBarShowHide()
+player._InfoBarShowHide__state = player.STATE_SHOWN
+e2stubs.InfoBarShowHide.toggleShow(player)
+assert player.toggled, "only live TV's banner, not the recordings player's"
+Screens.InfoBar.InfoBar.instance = None
 print("hook ok")
 config.plugins.gulliontv.enabled.value = True
 
@@ -325,6 +344,7 @@ coming = [info["next%d" % i].text for i in range(nowinfo.COMING_UP)]
 assert info["title"].text and info["title"].text != "No programme information", info["title"].text
 assert coming[0], "the next programme is listed"
 assert info["channel"].text.startswith("1  "), info["channel"].text
+assert info["signal0_label"].text == "", "no tuner details from the stub service"
 info.ref = "1:0:19:1:1:1:EEEE0000:0:0:0:"
 info.draw_icons("Kay gives Dom an ultimatum. (HD, S, AD)")
 shown = [info["icon%d" % i].instance.pixmap if info["icon%d" % i].visible else None for i in range(nowinfo.ICON_SLOTS)]
@@ -351,6 +371,12 @@ assert serviceinfo.badges("Kay gives Dom an ultimatum. (HD, S, AD, SL)") == ["S"
 assert serviceinfo.delivery_kind("1:0:19:1:1:1:EEEE0000:0:0:0:") == "terrestrial"
 assert serviceinfo.delivery_kind("1:0:19:1B58:802:2:11A0000:0:0:0:") == "satellite"
 assert serviceinfo.delivery_kind("4097:0:1:0:0:0:0:0:0:0:https%3a//example.ie/live.m3u8:Church") == "internet"
+details = serviceinfo.signal_details(
+	{"tuner_signal_quality": 55705, "tuner_signal_quality_db": 1234, "tuner_signal_power": 39321, "tuner_bit_error_rate": 0, "tuner_number": 0},
+	{"tuner_type": "DVB-S", "frequency": 11428000, "polarization": 0, "symbol_rate": 27500000})
+assert details == [("Quality", "85%"), ("SNR", "12.3 dB"), ("Power", "60%"), ("Errors", "0"), ("Tuner", "A"), ("Frequency", "11428 H"), ("Symbol rate", "27500")], details
+assert serviceinfo.signal_details({}, {"tuner_type": "DVB-T", "frequency": 690000000}) == [("Frequency", "690 MHz")]
+assert serviceinfo.signal_details(None, None) == [], "a stream has no tuner"
 print("service info ok")
 
 saorview_hd = "1:0:19:1:1:1:EEEE0000:0:0:0:"
@@ -974,6 +1000,13 @@ for path in glob.glob(os.path.join(e2stubs.PLUGIN_PARENT, "GullionTV", "**", "*.
 	if any(byte > 127 for byte in bytearray(data)):
 		assert b"coding: utf-8" in data.split(b"\n", 2)[0] + data.split(b"\n", 2)[1], "%s needs a coding line" % path
 print("python 2 encoding ok")
+
+# enigma2 exec()s anything in onLayoutFinish that isn't a bound method, so a lambda there
+# crashes the box when the screen opens.
+for folder, _, files in os.walk(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugin", "GullionTV")):
+	for name in files:
+		if name.endswith(".py"):
+			assert "onLayoutFinish.append(lambda" not in open(os.path.join(folder, name)).read(), name
 
 # Fitting other skin sizes: every screen designed at 1920x1080 must fit the
 # skin's own size once scaled (MetrixHD and the default skin are 1280x720).
