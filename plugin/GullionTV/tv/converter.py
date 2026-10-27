@@ -5,6 +5,7 @@ Components.Converter.GullionServiceInfo by infobar.install().
 	Number     (session.CurrentService) channel number as the guide shows it
 	Name       (session.CurrentService) channel name alone: OpenATV 7.x's ServiceName
 	                                    Name puts the channel number in front
+	NumberAndName (session.CurrentService) "101   BBC One NI HD"
 	Remaining  (session.Event_Now)      "18 min left"
 	Icon:N     (session.Event_Now)      the Nth icon from the right of the programme's
 	                                    row (access codes, hd/uhd, delivery), for the
@@ -77,18 +78,27 @@ class GullionServiceInfo(Poll, Converter, object):
 				return ""
 			return serviceinfo.remaining(event.getBeginTime() + event.getDuration() - time.time())
 		if self.type == "Name":
-			service = self.source.service
-			info = service and service.info()
-			name = info and info.getName() or ""
-			# Drop the emphasis markers some broadcasters put in names, as ServiceName does.
-			return name.replace("\xc2\x86", "").replace("\xc2\x87", "")
+			return self.name()
 		ref, height = self.service_details()
+		if self.type == "NumberAndName":
+			number = self.number(ref)
+			return "%s   %s" % (number, self.name()) if number else self.name()
 		if self.type == "Number":
-			if not _numbers:
-				_numbers.update(serviceinfo.channel_numbers(epg.channel_lists()))
-			number = _numbers.get(serviceinfo.key(ref))
-			return str(number) if number else ""
+			return self.number(ref)
 		return ""
+
+	def name(self):
+		service = self.source.service
+		info = service and service.info()
+		name = info and info.getName() or ""
+		# Drop the emphasis markers some broadcasters put in names, as ServiceName does.
+		return name.replace("\xc2\x86", "").replace("\xc2\x87", "")
+
+	def number(self, ref):
+		if not _numbers:
+			_numbers.update(serviceinfo.channel_numbers(epg.channel_lists()))
+		number = _numbers.get(serviceinfo.key(ref))
+		return str(number) if number else ""
 
 	text = property(getText)
 

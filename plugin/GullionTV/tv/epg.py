@@ -34,6 +34,9 @@ class Event(object):
 	def airing(self, now):
 		return self.begin <= now < self.end
 
+	def over(self, now):
+		return self.end <= now
+
 	@property
 	def description(self):
 		if self.short and self.extended and not self.extended.startswith(self.short):

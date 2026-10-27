@@ -96,7 +96,7 @@ def _code_icons_skin():
 class Guide(Screen):
 	skin = """
 	<screen name="GullionGuide" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
-		<eLabel text="TV guide" position="90,44" size="500,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
+		<eLabel text="TV Guide" position="90,44" size="500,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
 		<eLabel position="760,67" size="18,18" backgroundColor="%(yellow)s" />
 		<widget name="list_name" position="792,50" size="520,50" font="Regular;32" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
@@ -105,7 +105,7 @@ class Guide(Screen):
 
 		<widget name="picon_fallback" position="90,150" size="220,132" font="Regular;30" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(card)s" zPosition="1" />
 		<widget name="picon" position="90,150" size="220,132" alphatest="blend" zPosition="2" />
-		<widget name="chan_num" position="90,294" size="220,70" font="Regular;26" halign="center" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="chan_num" position="90,294" size="220,50" font="Regular;34" halign="center" foregroundColor="%(muted)s" transparent="1" />
 		<widget name="ev_title" position="340,146" size="760,60" font="Regular;46" noWrap="1" foregroundColor="%(text)s" transparent="1" />
 		%(code_icons)s
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
@@ -139,7 +139,7 @@ class Guide(Screen):
 
 	def __init__(self, session):
 		Screen.__init__(self, session)
-		self.setTitle("TV guide")
+		self.setTitle("TV Guide")
 
 		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
 			self[name] = Label()
@@ -391,7 +391,8 @@ class Guide(Screen):
 
 	def ok(self):
 		event = self.selected_event()
-		if event is None:
+		# A programme that has already finished can't be watched or recorded.
+		if event is None or event.over(self.now):
 			return
 		if event.airing(self.now):
 			bouquet = self.lists[self.list_index][0]
@@ -410,7 +411,7 @@ class Guide(Screen):
 
 	def record_key(self):
 		event = self.selected_event()
-		if event is None:
+		if event is None or event.over(self.now):
 			return
 		if epg.find_timer(self.session, self.channels[self.row].ref, event):
 			self.session.openWithCallback(self.choice_made, GullionChoice, event.title,
@@ -422,7 +423,7 @@ class Guide(Screen):
 
 	def cannot_record(self):
 		if self.storage == recordings.FULL:
-			heading, detail = "The recording drive is full", "Delete some recordings in Watch again to make room."
+			heading, detail = "The recording drive is full", "Delete some old recordings to make room."
 		else:
 			heading, detail = "This box can't record right now", "Ask Tech Support to check the recording drive."
 		self.session.open(GullionChoice, heading, [("OK", None)], detail)
@@ -551,7 +552,8 @@ class Guide(Screen):
 	def draw_details(self):
 		event = self.selected_event()
 		channel = self.channels[self.row] if self.channels else None
-		self["chan_num"].setText("%d  %s" % (channel.number, channel.name) if channel else "")
+		# Just the number: the picon (or the name card in its place) says which channel.
+		self["chan_num"].setText(str(channel.number) if channel else "")
 		self.draw_picon(channel)
 		if event is None:
 			self["ev_title"].setText("No programme information" if channel else "No channels yet")
@@ -566,11 +568,11 @@ class Guide(Screen):
 		self["ev_desc"].setText(serviceinfo.split_codes(event.description)[0])
 		self.draw_codes(event.description)
 		airing = event.airing(self.now)
-		if epg.find_timer(self.session, channel.ref, event):
+		if not event.over(self.now) and epg.find_timer(self.session, channel.ref, event):
 			self["ev_rec"].setText("Recording" if airing else "Will record")
 		else:
 			self["ev_rec"].setText("")
-		able = recordings.can_record(self.storage)
+		able = recordings.can_record(self.storage) and not event.over(self.now)
 		hints = [("OK", "Watch")] if airing else ([("OK", "Record options")] if able else [])
 		if able:
 			hints.append(("REC", "Record"))

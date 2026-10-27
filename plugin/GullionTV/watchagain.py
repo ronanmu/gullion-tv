@@ -45,7 +45,7 @@ def read_recordings():
 def empty_message(state):
 	if state == recordings.MISSING:
 		return "Recording isn't set up on this box. Ask Tech Support to check the recording drive."
-	return "No recordings yet. Press REC while watching, or record from the TV guide."
+	return "No recordings yet. Press REC while watching, or record from the TV Guide."
 
 
 def recording_tile(recording, continuing=False):
@@ -84,7 +84,7 @@ def plex_pictures(client, items):
 class WatchAgain(Screen):
 	skin = """
 	<screen name="GullionWatchAgain" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
-		<eLabel text="Watch again" position="90,44" size="800,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
+		<eLabel text="Recordings" position="90,44" size="800,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
 			<convert type="ClockToText">Format:%%a %%d %%b   %%H:%%M</convert>
 		</widget>
@@ -112,7 +112,7 @@ class WatchAgain(Screen):
 
 	def __init__(self, session, plex_settings=None):
 		Screen.__init__(self, session)
-		self.setTitle("Watch again")
+		self.setTitle("Recordings")
 		for slot in range(len(SLOT_Y)):
 			self["slot%d_title" % slot] = Label()
 			self["slot%d_empty" % slot] = Label()

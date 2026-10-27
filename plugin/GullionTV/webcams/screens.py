@@ -11,7 +11,7 @@ from Screens.Screen import Screen
 from . import config as webcamconfig, sources
 from .. import theme
 from ..ui.popups import GullionChoice
-from ..ui import scale
+from ..ui import live, scale
 
 COLS, ROWS = 3, 2
 PER_PAGE = COLS * ROWS
@@ -244,17 +244,17 @@ class WebcamPlayer(Screen):
 		<widget name="panel" position="60,860" size="1800,180" backgroundColor="%(bg)s" zPosition="1" />
 		<widget name="name" position="90,880" size="1500,60" font="Regular;46" foregroundColor="%(text)s" transparent="1" zPosition="2" />
 		<widget name="source" position="90,946" size="900,40" font="Regular;28" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
-		<widget name="badge" position="1650,886" size="180,44" font="Regular;26" halign="center" valign="center" foregroundColor="%(on_light)s" backgroundColor="%(live)s" zPosition="2" />
+		%(live_tag)s
 		<widget name="hint" position="1000,992" size="830,36" font="Regular;24" halign="right" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
 		<widget name="message" position="410,470" size="1100,140" font="Regular;34" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(popup)s" zPosition="3" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "live": theme.LIVE,
-		"on_light": theme.TEXT_ON_SELECTED, "popup": theme.POPUP,
+		"on_light": theme.TEXT_ON_SELECTED, "popup": theme.POPUP, "live_tag": live.skin("live", 1690, 886, z=2),
 	}
 
 	BANNER_SECONDS = 6
 	GIVE_UP_SECONDS = 20
-	BANNER = ("panel", "name", "source", "badge", "hint")
+	BANNER = ("panel", "name", "source", "hint")
 
 	skin = scale.skin(skin)
 
@@ -265,7 +265,8 @@ class WebcamPlayer(Screen):
 		self["panel"] = Label()
 		self["name"] = Label(webcam.name)
 		self["source"] = Label(" · ".join(part for part in (webcam.group, webcam.source_label, webcam.detail) if part))
-		self["badge"] = Label("Live" if webcam.status == sources.LIVE else "Stream")
+		live.add_widgets(self, "live")
+		self.live = webcam.status == sources.LIVE
 		self["hint"] = Label("OK to show or hide this   ·   BACK to return")
 		self["message"] = Label("Connecting...")
 		self["actions"] = ActionMap(["OkCancelActions", "MenuActions"], {
@@ -284,6 +285,7 @@ class WebcamPlayer(Screen):
 		self.onLayoutFinish.append(self.start)
 
 	def start(self):
+		live.show(self, "live", self.live)
 		self.session.nav.playService(eServiceReference(self.webcam.service_ref()))
 		self.banner_timer.start(self.BANNER_SECONDS * 1000, True)
 		self.watchdog.start(1000, False)
@@ -306,12 +308,14 @@ class WebcamPlayer(Screen):
 		else:
 			for name in self.BANNER:
 				self[name].show()
+			live.show(self, "live", self.live)
 			self.banner_visible = True
 			self.banner_timer.start(self.BANNER_SECONDS * 1000, True)
 
 	def hide_banner(self):
 		for name in self.BANNER:
 			self[name].hide()
+		live.show(self, "live", False)
 		self.banner_visible = False
 
 	def leave(self):

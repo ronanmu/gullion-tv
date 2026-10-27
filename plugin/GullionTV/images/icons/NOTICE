@@ -1,3 +1,7 @@
-These icons are Material Symbols (Outlined) by Google, drawn from the font by
-tools/make_images.py. They're used under the Apache License 2.0 in LICENSE.
-https://github.com/google/material-design-icons
+These icons are drawn by tools/make_images.py from two icon fonts:
+
+- Material Symbols (Outlined) by Google, used under the Apache License 2.0 in LICENSE.
+  https://github.com/google/material-design-icons
+- live_tv and tv_guide are television-classic and television-guide from the Material Design
+  Icons community set by Pictogrammers, used under the Pictogrammers Free License in
+  LICENSE-mdi (the icons themselves are Apache 2.0). https://pictogrammers.com/library/mdi/

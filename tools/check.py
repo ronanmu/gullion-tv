@@ -193,6 +193,7 @@ for widget in ET.fromstring(home.GullionHome.skin).iter("widget"):
 	assert name is None or name in screen, "skin widget %s missing from screen" % name
 screen.layout()
 screen.refresh()
+assert screen["live_text"].text == "LIVE" and screen["live_tag"].visible, "the preview says LIVE, without the channel name"
 for _ in range(5):
 	screen.right()
 assert screen.selected == 3
@@ -213,20 +214,22 @@ assert session.opened[-1] == ("Guide",)
 screen.open_item(2)
 assert session.opened[-1] == ("WatchAgain",)
 screen.open_item(0)
-assert screen.closed == ("tv",)
+assert screen.closed[0] == "tv" and screen.closed[1] is screen.opened_on
 assert [card[2] for card in home.CARDS] == ["red", "green", "yellow", "blue"], "cards follow the remote's colour order"
 keys = screen["actions"].args[1]
 keys["green"]()
 assert session.opened[-1] == ("Guide",)
 keys["red"]()
-assert screen.closed == ("tv",)
+assert screen.closed[0] == "tv"
 from GullionTV.tv import epg as guide_epg  # noqa: E402
-zaps, real = [], (guide_epg.channel_lists, guide_epg.zap)
-guide_epg.channel_lists = lambda: [("bouquet1", "Saorview", [guide_epg.Channel("ref1", "RTÉ One", 1), guide_epg.Channel("ref2", "RTÉ2", 2)])]
-guide_epg.zap = lambda session, ref, bouquet: zaps.append((ref, bouquet))
-hook.watch_first_channel(None)
-assert zaps == [("ref1", "bouquet1")], "Watch TV goes to channel 1"
-guide_epg.channel_lists, guide_epg.zap = real
+# Live TV goes back to the channel Home was opened on.
+played = []
+ref = lambda text: types.SimpleNamespace(toString=lambda: text)
+nav = types.SimpleNamespace(playService=played.append, getCurrentlyPlayingServiceReference=lambda: ref("bbc"))
+hook.back_to(types.SimpleNamespace(nav=nav), ref("bbc"))
+assert played == [], "nothing to do when it's still on"
+hook.back_to(types.SimpleNamespace(nav=nav), ref("rte"))
+assert [p.toString() for p in played] == ["rte"], "back to it after Recordings or a webcam played something else"
 
 # Numbering matches the box's: placeholders and hidden lists still take numbers.
 real_service = 0
@@ -239,6 +242,14 @@ numbered = guide_epg.number_channels([
 ])
 assert [name for _, name, _ in numbered] == ["Saorview", "Entertainment", "Children"], "hidden lists aren't shown"
 assert [(c.name, c.number) for _, _, channels in numbered for c in channels] == [("RTÉ One", 1), ("BBC One NI HD", 101), ("CBBC", 204)]
+for title, subtitle, colour, icon in home.CARDS:
+	for name in (icon, icon + "_on_light"):
+		assert os.path.isfile(ui_icons.card_icon(name)), name
+assert [card[0] for card in home.CARDS] == ["Live TV", "TV Guide", "Recordings", "Webcams"]
+for el in ET.fromstring(home.GullionHome.skin).iter("ePixmap"):
+	assert os.path.isfile(el.get("pixmap")), el.get("pixmap")
+screen.paint_selection()
+assert screen["card0_icon"].instance.pixmap.endswith("live_tv_on_light_72.png") or screen.selected != 0
 print("navigation ok")
 
 config.plugins.gulliontv.pin.value = 1234
@@ -319,7 +330,7 @@ picon._system_lookup = lambda channel: os.path.join(picon_dir, "%s.png" % channe
 g = guide.Guide(session)
 g.layout()
 assert g["picon"].instance.pixmap.endswith("1_0_19_1_1_1_EEEE0000_0_0_0.png") and g["picon"].visible
-assert not g["picon_fallback"].visible and g["chan_num"].text == "1  RTÉ One"
+assert not g["picon_fallback"].visible and g["chan_num"].text == "1", "just the number under the picon"
 g.move_row(4)
 assert not g["picon"].visible and g["picon_fallback"].visible and g["picon_fallback"].text == "BBC One NI"
 assert picon._search("1:0:19:1:1:1:NOPE:0:0:0:") is None
@@ -357,6 +368,18 @@ g = guide.Guide(session)
 g.layout()
 g.ok()
 assert session.zapped == [g.channels[0].ref] and g.closed == ("watch",)
+# A programme that has finished: OK and REC do nothing, and no hints offer them.
+g = guide.Guide(session)
+g.layout()
+finished = guide.epg.Event(2, sample_epg.NOW - 1800, 1200, "Earlier", "", "")
+g.selected_event = lambda: finished
+g.draw_details()
+before = len(session.opened)
+g.ok()
+g.record_key()
+assert len(session.opened) == before and not getattr(g, "closed", None), "nothing to watch or record"
+assert [g["hint%d_key" % i].text for i in range(guide.HINTS)] == ["INFO", "", ""], [g["hint%d_key" % i].text for i in range(guide.HINTS)]
+
 # Access codes in the guide: taken out of the description, shown as icons instead.
 g = guide.Guide(session)
 g.layout()
@@ -508,7 +531,7 @@ assert serviceinfo.signal_details(None, None) == [], "a stream has no tuner"
 print("service info ok")
 
 saorview_hd = "1:0:19:1:1:1:EEEE0000:0:0:0:"
-for kind, expected in (("Number", "1"), ("Name", "RTÉ One")):
+for kind, expected in (("Number", "1"), ("Name", "RTÉ One"), ("NumberAndName", "1   RTÉ One")):
 	c = converter.GullionServiceInfo(kind)
 	c.source = e2stubs.fake_service(saorview_hd, name="\xc2\x86RTÉ One\xc2\x87")
 	assert c.text == expected, (kind, c.text)
@@ -557,11 +580,11 @@ for widget in element.iter("widget"):
 	assert widget.get("source"), "banner widgets must come from sources, not screen code"
 	x, y = [int(v) for v in widget.get("position").split(",")]
 	w, h = [int(v) for v in widget.get("size").split(",")]
-	assert 0 <= x and x + w <= 1920 and banner.PANEL_Y <= y and y + h <= banner.PANEL_Y + banner.PANEL_H, widget.attrib
+	assert 0 <= x and x + w <= 1920 and banner.TITLE_Y <= y and y + h <= banner.PANEL_Y + banner.PANEL_H, widget.attrib
 	for convert in widget.iter("convert"):
 		assert convert.get("type") in known, convert.get("type")
 		if convert.get("type") == "GullionServiceInfo":
-			assert convert.text in ("Number", "Name", "Remaining") or convert.text.startswith("Icon:"), convert.text
+			assert convert.text in ("Number", "Name", "NumberAndName", "Remaining") or convert.text.startswith("Icon:"), convert.text
 assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
 for name in ("NumberZap", "Volume"):
 	popup, path = skin.dom_screens[name]
@@ -658,16 +681,17 @@ print("webcam list ok")
 player = webcams.WebcamPlayer(session, grid.webcams[0])
 player.layout()
 assert session.nav.played[-1].ref == grid.webcams[0].service_ref()
-assert player["source"].text == "Church · mcn.live" and player["badge"].text == "Live"
+assert player["source"].text == "Church · mcn.live" and player.live and player["live_text"].text == "LIVE"
+assert player["live_dot"].visible and player["live_dot"].instance.pixmap.endswith("key_red_24.png")
 player.check_picture()
 assert player["message"].text == "Connecting..."
 for _ in range(player.GIVE_UP_SECONDS):
 	player.check_picture()
 assert "isn't sending a picture" in player["message"].text
 player.toggle_banner()
-assert not player["panel"].visible
+assert not player["panel"].visible and not player["live_tag"].visible, "LIVE hides with the banner"
 player.toggle_banner()
-assert player["panel"].visible
+assert player["panel"].visible and player["live_tag"].visible
 player.leave()
 assert session.nav.played[-1].name == "RTÉ One", "the channel from before is put back"
 

@@ -9,7 +9,7 @@ front of OpenATV 6.4, so someone who just wants to watch TV never meets the box'
 
 Gullion TV was made for an older relative, though it suits anyone who finds set-top box menus hard going.
 
-- **A simpler interface.** One home screen with four choices (Watch TV, TV guide, Watch again and Webcams), each on
+- **A simpler interface.** One home screen with four choices (Live TV, TV Guide, Recordings and Webcams), each on
   the matching red, green, yellow or blue button of the remote. The text is large and high-contrast, and the wording
   is plain ("18 min left", not "EPG" or "bouquet"). BACK always goes back one step.
 - **One channel list for Saorview and Freesat.** Residents of Ireland/Northern Ireland who wish to watch FTA TV from both the UK and Ireland      regularly have a poor experience in switching between channel listings and sourcing consistent programme guides. Enigma2 boxes, given their flexiblity are one of the better ways to combine both Irish terrestrial (Saorview, DVB-T2) and UK satellite (Freesat, DVB-S2) channels in a not entirely cumbersome way, but this plugin will support any DVB-T or DVB-S service setup on the box and defined as a bouquet. Tech Support sets up a single "My channels" list that mixes the channels actually watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide, and the guide and the channel banner number channels the same way.
@@ -46,19 +46,21 @@ Gullion TV style.
 - Home shows the date, a short weather report with a Yr weather icon ("8°  Light rain  ·  Tomorrow 14°") and the
   clock, a live picture
   of the current channel with now and next, and four cards:
-  Watch TV (red), TV guide (green), Watch again (yellow) and Webcams (blue), in remote order.
+  Live TV (red), TV Guide (green), Recordings (yellow) and Webcams (blue), in remote order, each with a
+  Material icon and a coloured dot for its button. Live TV goes back to the channel that was on.
   The matching colour button opens each card directly.
 - **Settings** (press down from the cards) asks for the Tech Support PIN, then opens the stock OpenATV menu.
   The PIN also guards every other way into the stock settings and plugins: GREEN's plugin list, BLUE's
   extensions, the channel list's edit menu and anything set up in Button setup.
-- **TV guide** (green): the selected channel's picon, programme details and the live picture on top, a day bar, and a two-hour grid of six
+- **TV Guide** (green): the selected channel's picon, programme details and the live picture on top, a day bar, and a two-hour grid of six
   channels. Arrows move, CH +/- pages, red/green jump a day, yellow switches channel list, blue returns to now.
   OK watches a programme that's on now, or offers to record a later one. REC records, INFO shows full details.
   Typing a channel number jumps to it. Subtitles, audio description, sign language and repeats are shown as icons.
   GUIDE, the arrows, TV and FAV open this guide from live TV, in place of the stock guide and channel list.
   Each time it opens, the guide checks the recording drive (mounted, writable, at least 2 GB free). If the box
   can't record, the REC hint and record options go and REC explains why; under 10 GB it warns that space is low.
-- **Channel banner** over live TV: the channel number over its picon, the channel name, now/next with time left, a
+- **Channel banner** over live TV: the channel number and name above it in large outlined text, the picon,
+  a large Now line and Next with time left, a
   Recording badge while anything is recording, and a row of Material Symbols icons (subtitles, audio description,
   sign language and repeat from the listing; HD or 4K; satellite, terrestrial, cable or internet) beside a signal
   gauge. Channel numbers match the box's own, including Freesat's (BBC One NI HD is 101).
@@ -71,7 +73,7 @@ Gullion TV style.
 - **Webcams** (blue): tiles for each camera in `/etc/enigma2/gulliontv/webcams.yaml`, with a picture, its name and
   whether it's live (and, for churchservices.tv, the next service). OK plays it full screen; BACK puts the previous
   channel back. Pages are checked in the background, so the grid shows straight away.
-- **Watch again** (yellow), subtitled "Recorded TV & Plex" once Plex is set up: Continue watching (Plex and
+- **Recordings** (yellow), subtitled "Recorded TV & Plex" once Plex is set up: Continue watching (Plex and
   part-watched recordings, most recent first), Recently added to Plex, Recorded TV, then Browse: Films, TV
   programmes and All recordings. Plex tiles carry a Plex badge and use landscape art (an episode's still, a film's
   background), falling back to the poster at the left of the tile. Recordings show a frame from the recording with
@@ -90,22 +92,23 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   settings.py            the box settings: on/off, channel banner, Tech Support PIN
   setup.py               Tech Support settings screen
   home.py                the Home screen
-  watchagain.py          Watch again and the All recordings grid (recordings and Plex together)
+  watchagain.py          Recordings and the All recordings grid (recordings and Plex together)
   weather/
     forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours
-  images/                rec_clock marks recordings in the guide; weather/ holds the Yr weather icons;
-                         icons/ holds the Material Symbols (Apache 2.0) for the banner and pop-ups
+  images/                rec_clock (a Material clock) marks recordings in the guide; weather/ holds the Yr weather icons;
+                         icons/ holds Material Symbols and Material Design Icons (see icons/NOTICE)
   ui/                    shared building blocks
-    tiles.py             picture tiles for Watch again, All recordings and the Plex views
+    tiles.py             picture tiles for Recordings, All recordings and the Plex views
     popups.py            themed choice and programme-details pop-ups
     pin.py               PIN prompts, including choosing the Tech Support PIN on first use
     placeholder.py       stand-in screen for parts still to come
     background.py        runs network and disk work off the screen thread
     scale.py             fits the 1920x1080 layouts to the skin's size
     icons.py             picks each Material icon at the size nearest the skin's
+    live.py              the red-dot LIVE marker on Home's preview and the webcam player
   tv/                    live TV
-    guide.py             the TV guide
+    guide.py             the TV Guide
     epg.py               channel lists, programme data, record timers and channel switching
     picon.py             finds the picon (channel logo) file for any channel
     infobar.py           the channel banner, number entry and volume pop-ups, swapped in at start-up
@@ -191,7 +194,7 @@ hour in the background. If neither answers for six hours, the weather line simpl
 ## Recording pictures
 
 Install ffmpeg on the box once (`opkg update && opkg install ffmpeg`). Gullion TV then saves one frame from each
-recording when it finishes, and catches up on older ones when Watch again opens, at the lowest priority. Without
+recording when it finishes, and catches up on older ones when Recordings opens, at the lowest priority. Without
 ffmpeg, recordings show their channel's picon.
 
 ## Tech Support notes

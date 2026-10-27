@@ -21,15 +21,16 @@ PANEL_Y = 810
 PANEL_H = 234
 
 ICON_SLOTS = 6
-# The signal gauge sits at the right end of the Next line; the icons pack up against it.
+TITLE_Y = PANEL_Y - 76  # the channel number and name, above the panel
+# The signal gauge sits at the right end of the bottom line; the icons pack up against it.
 SIGNAL_X = 1640
 ICONS_RIGHT = SIGNAL_X - 20
 
 
 def _icons_skin():
-	"""The programme's icons on the right of the Next line, packed against the right edge."""
+	"""The programme's icons on the right of the bottom line, packed against the signal gauge."""
 	return "".join(
-		'<widget source="session.Event_Now" render="GullionIcon" position="%d,981" size="40,40" alphatest="blend" zPosition="2">'
+		'<widget source="session.Event_Now" render="GullionIcon" position="%d,986" size="40,40" alphatest="blend" zPosition="2">'
 		'<convert type="GullionServiceInfo">Icon:%d</convert></widget>' % (ICONS_RIGHT - 40 - (slot - 1) * 52, slot)
 		for slot in range(1, ICON_SLOTS + 1))
 
@@ -38,56 +39,55 @@ SKIN = """
 <screen name="InfoBar" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="#ff000000">
 	<eLabel position="60,%(panel_y)d" size="1800,%(panel_h)d" backgroundColor="%(panel)s" />
 
-	<!-- Channel number over a larger picon, kept at the picons' 5:3 shape. -->
-	<widget source="session.CurrentService" render="Picon" position="80,878" size="250,150" zPosition="2" alphatest="blend">
+	<!-- The channel's number and name sit above the panel, in large outlined text that shows
+	     up over any picture; inside, the picon is enough to say which channel it is. -->
+	<widget source="session.CurrentService" render="Label" position="60,%(title_y)d" size="1500,66" font="Regular;54" valign="center" noWrap="1" foregroundColor="%(white)s" borderWidth="3" borderColor="%(outline)s" transparent="1" zPosition="2">
+		<convert type="GullionServiceInfo">NumberAndName</convert>
+	</widget>
+
+	<widget source="session.CurrentService" render="Picon" position="80,852" size="250,150" zPosition="2" alphatest="blend">
 		<convert type="ServiceName">Reference</convert>
 	</widget>
 
-	<widget source="session.CurrentService" render="Label" position="80,822" size="250,50" font="Regular;40" halign="center" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
-		<convert type="GullionServiceInfo">Number</convert>
-	</widget>
-	<widget source="session.CurrentService" render="Label" position="370,832" size="940,62" font="Regular;48" foregroundColor="%(text)s" transparent="1" zPosition="2">
-		<convert type="GullionServiceInfo">Name</convert>
-	</widget>
-	<widget source="session.RecordState" render="FixedLabel" text="Recording" position="1330,843" size="180,40" font="Regular;26" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(red)s" zPosition="2">
-		<convert type="ConditionalShowHide" />
-	</widget>
-	<widget source="global.CurrentTime" render="Label" position="1530,832" size="300,62" font="Regular;48" halign="right" foregroundColor="%(text)s" transparent="1" zPosition="2">
-		<convert type="ClockToText">Format:%%H:%%M</convert>
-	</widget>
-
-	<eLabel text="Now" position="370,906" size="110,50" font="Regular;32" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
-	<widget source="session.Event_Now" render="Label" position="490,906" size="110,50" font="Regular;36" valign="center" foregroundColor="%(accent)s" transparent="1" zPosition="2">
+	<eLabel text="Now" position="370,836" size="110,64" font="Regular;34" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
+	<widget source="session.Event_Now" render="Label" position="490,836" size="120,64" font="Regular;40" valign="center" foregroundColor="%(accent)s" transparent="1" zPosition="2">
 		<convert type="EventTime">StartTime</convert>
 		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
-	<widget source="session.Event_Now" render="Label" position="610,904" size="910,54" font="Regular;40" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
+	<widget source="session.Event_Now" render="Label" position="620,832" size="890,70" font="Regular;54" valign="center" noWrap="1" foregroundColor="%(text)s" transparent="1" zPosition="2">
 		<convert type="EventName">Name</convert>
 	</widget>
-	<widget source="session.Event_Now" render="Label" position="1530,906" size="300,50" font="Regular;30" halign="right" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
-		<convert type="GullionServiceInfo">Remaining</convert>
+	<widget source="global.CurrentTime" render="Label" position="1530,832" size="300,70" font="Regular;48" halign="right" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
+		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
-	<widget source="session.Event_Now" render="Progress" position="370,964" size="1460,6" foregroundColor="%(text)s" backgroundColor="%(divider)s" zPosition="2">
+	<widget source="session.Event_Now" render="Progress" position="370,914" size="1460,6" foregroundColor="%(text)s" backgroundColor="%(divider)s" zPosition="2">
 		<convert type="EventTime">Progress</convert>
 	</widget>
 
-	<eLabel text="Next" position="370,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
-	<widget source="session.Event_Next" render="Label" position="490,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+	<eLabel text="Next" position="370,932" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
+	<widget source="session.Event_Next" render="Label" position="490,932" size="120,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="EventTime">StartTime</convert>
 		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
-	<widget source="session.Event_Next" render="Label" position="610,980" size="690,42" font="Regular;30" valign="center" noWrap="1" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+	<widget source="session.Event_Next" render="Label" position="620,932" size="890,42" font="Regular;30" valign="center" noWrap="1" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="EventName">Name</convert>
 	</widget>
+	<widget source="session.Event_Now" render="Label" position="1530,932" size="300,42" font="Regular;30" halign="right" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+		<convert type="GullionServiceInfo">Remaining</convert>
+	</widget>
+
+	<widget source="session.RecordState" render="FixedLabel" text="Recording" position="370,986" size="180,40" font="Regular;26" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(red)s" zPosition="2">
+		<convert type="ConditionalShowHide" />
+	</widget>
 	%(icons)s
-	<widget source="session.FrontendStatus" render="Progress" position="%(signal_x)d,998" size="110,8" foregroundColor="%(live)s" backgroundColor="%(divider)s" zPosition="2">
+	<widget source="session.FrontendStatus" render="Progress" position="%(signal_x)d,1002" size="110,8" foregroundColor="%(live)s" backgroundColor="%(divider)s" zPosition="2">
 		<convert type="FrontendInfo">SNR</convert>
 	</widget>
-	<widget source="session.FrontendStatus" render="Label" position="%(signal_text_x)d,980" size="76,42" font="Regular;26" halign="right" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
+	<widget source="session.FrontendStatus" render="Label" position="%(signal_text_x)d,985" size="76,42" font="Regular;26" halign="right" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
 		<convert type="FrontendInfo">SNR</convert>
 	</widget>
 </screen>""" % {
-	"panel_y": PANEL_Y, "panel_h": PANEL_H, "panel": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
+	"panel_y": PANEL_Y, "panel_h": PANEL_H, "title_y": TITLE_Y, "white": "#00ffffff", "outline": "#00000000", "panel": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 	"divider": theme.DIVIDER, "accent": theme.ACCENT, "red": theme.KEY_RED,
 	"light": theme.CARD_SELECTED, "card": theme.CARD, "on_light": theme.TEXT_ON_SELECTED,
 	"icons": _icons_skin(), "signal_x": SIGNAL_X, "signal_text_x": SIGNAL_X + 114, "live": theme.LIVE,

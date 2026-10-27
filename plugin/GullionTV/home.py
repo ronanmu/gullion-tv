@@ -9,6 +9,7 @@ from Components.Pixmap import Pixmap
 from Components.ProgressBar import ProgressBar
 from ServiceReference import ServiceReference
 from Screens.Screen import Screen
+from Tools.LoadPixmap import LoadPixmap
 
 from . import theme
 from .plex import client as plex
@@ -20,15 +21,16 @@ from .watchagain import WatchAgain
 from .ui.background import Background
 from .weather import forecast
 from .webcams.screens import WebcamList
-from .ui import scale, tiles
+from .ui import icons, live, scale, tiles
 
 # (title, subtitle, remote colour key, colour) in on-screen order. The colours run
 # left to right in the order they sit on the remote.
+# (title, subtitle, colour button, card icon)
 CARDS = [
-	("Watch TV", "Your channels", "red", theme.KEY_RED),
-	("TV guide", "Tonight and this week", "green", theme.KEY_GREEN),
-	("Watch again", "Recorded TV", "yellow", theme.KEY_YELLOW),
-	("Webcams", "Live cameras", "blue", theme.KEY_BLUE),
+	("Live TV", "Your channels", "red", "live_tv"),
+	("TV Guide", "Tonight and this week", "green", "tv_guide"),
+	("Recordings", "Recorded TV", "yellow", "recordings"),
+	("Webcams", "Live cameras", "blue", "webcams"),
 ]
 SETTINGS = len(CARDS)
 
@@ -43,13 +45,14 @@ def _card_skin(index, colour):
 	x = LEFT + index * (CARD_W + CARD_GAP)
 	return """
 		<widget name="card%(i)d" position="%(x)d,%(y)d" size="%(w)d,%(h)d" backgroundColor="%(card)s" zPosition="1" />
-		<eLabel position="%(dx)d,%(dy)d" size="18,18" backgroundColor="%(dot)s" zPosition="2" />
+		<widget name="card%(i)d_icon" position="%(ix)d,%(iy)d" size="72,72" alphatest="blend" zPosition="2" />
+		<ePixmap pixmap="%(dot)s" position="%(dx)d,%(dy)d" size="24,24" alphatest="blend" zPosition="2" />
 		<widget name="card%(i)d_title" position="%(tx)d,%(ty)d" size="%(tw)d,56" font="Regular;40" foregroundColor="%(text)s" transparent="1" zPosition="2" />
 		<widget name="card%(i)d_sub" position="%(tx)d,%(sy)d" size="%(tw)d,40" font="Regular;28" foregroundColor="%(muted)s" transparent="1" zPosition="2" />""" % {
 		"i": index, "x": x, "y": CARD_Y, "w": CARD_W, "h": CARD_H,
-		"dx": x + CARD_W - 50, "dy": CARD_Y + 32,
+		"ix": x + 32, "iy": CARD_Y + 36, "dx": x + CARD_W - 56, "dy": CARD_Y + 44,
 		"tx": x + 32, "ty": CARD_Y + 140, "sy": CARD_Y + 196, "tw": CARD_W - 64,
-		"card": theme.CARD, "dot": colour, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
+		"card": theme.CARD, "dot": icons.key_icon(colour), "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 	}
 
 
@@ -65,7 +68,7 @@ class GullionHome(Screen):
 		<eLabel position="90,130" size="1740,1" backgroundColor="%(divider)s" />
 
 		<widget source="session.VideoPicture" render="Pig" position="90,170" size="880,495" zPosition="1" backgroundColor="#ff000000" />
-		<widget name="live_tag" position="110,605" size="500,44" font="Regular;26" foregroundColor="%(text)s" backgroundColor="%(bg)s" zPosition="3" />
+		%(live)s
 
 		<widget name="now_label" position="1030,230" size="800,40" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		<widget name="event_name" position="1030,276" size="800,140" font="Regular;54" foregroundColor="%(text)s" transparent="1" />
@@ -77,7 +80,8 @@ class GullionHome(Screen):
 		<widget name="settings" position="1630,1000" size="200,52" font="Regular;28" halign="center" valign="center" foregroundColor="%(muted)s" backgroundColor="%(bg)s" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER,
-		"cards": "".join(_card_skin(i, card[3]) for i, card in enumerate(CARDS)),
+		"cards": "".join(_card_skin(i, card[2]) for i, card in enumerate(CARDS)),
+		"live": live.skin("live", 110, 605),
 	}
 
 	skin = scale.skin(skin)
@@ -91,7 +95,7 @@ class GullionHome(Screen):
 		self["weather_icon"] = Pixmap()
 		self.weather_icons = tiles.Pictures(48, 48, background=theme.BACKGROUND)
 		self.background = Background()
-		self["live_tag"] = Label()
+		live.add_widgets(self, "live")
 		self["now_label"] = Label()
 		self["event_name"] = Label()
 		self["event_time"] = Label()
@@ -103,11 +107,14 @@ class GullionHome(Screen):
 			self["card%d" % i] = Label()
 			self["card%d_title" % i] = Label(card[0])
 			self["card%d_sub" % i] = Label(card[1])
+			self["card%d_icon" % i] = Pixmap()
 		if plex.is_configured(plex.load_settings()):
 			self["card2_sub"].setText("Recorded TV & Plex")
 
 		self.selected = 0
 		self.last_card = 0
+		# Live TV goes back to this, even if Recordings or a webcam has played something since.
+		self.opened_on = session.nav.getCurrentlyPlayingServiceReference()
 
 		actions = {
 			"left": self.left,
@@ -162,7 +169,7 @@ class GullionHome(Screen):
 
 	def open_item(self, index):
 		if index == 0:
-			self.close("tv")
+			self.close("tv", self.opened_on)
 		elif index == 1:
 			self.session.openWithCallback(self.guide_closed, Guide)
 		elif index == 2:
@@ -194,6 +201,9 @@ class GullionHome(Screen):
 			self._colour("card%d" % i, background=theme.CARD_SELECTED if chosen else theme.CARD)
 			self._colour("card%d_title" % i, foreground=theme.TEXT_ON_SELECTED if chosen else theme.TEXT)
 			self._colour("card%d_sub" % i, foreground=theme.TEXT_ON_SELECTED_MUTED if chosen else theme.TEXT_MUTED)
+			icon = self["card%d_icon" % i].instance
+			if icon is not None:
+				icon.setPixmap(LoadPixmap(icons.card_icon(CARDS[i][3] + ("_on_light" if chosen else "")), cached=True))
 		chosen = self.selected == SETTINGS
 		self._colour("settings",
 			background=theme.CARD_SELECTED if chosen else theme.BACKGROUND,
@@ -245,7 +255,8 @@ class GullionHome(Screen):
 		self["date"].setText("%s %d %s" % (time.strftime("%A", local), local.tm_mday, time.strftime("%B", local)))
 
 		channel = self.channel_name()
-		self["live_tag"].setText("  Live · %s" % channel if channel else "")
+		# The channel's name is on the right already; the picture just says it's live.
+		live.show(self, "live", bool(channel))
 		self["now_label"].setText("On now · %s" % channel if channel else "On now")
 
 		info = self.service_info()

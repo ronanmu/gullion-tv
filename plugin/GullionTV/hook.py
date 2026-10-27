@@ -139,23 +139,23 @@ def open_techsupport_menu():
 		_original_main_menu(infobar)
 
 
-def _home_closed(action=None):
+def _home_closed(action=None, service=None):
 	infobar = _infobar()
 	if infobar is None:
 		return
 	if action == "tv":
-		watch_first_channel(infobar.session)
+		back_to(infobar.session, service)
 	elif action == "techsupport":
 		open_techsupport_menu()
 
 
-def watch_first_channel(session):
-	"""Watch TV goes straight to channel 1, the first channel in the first list."""
-	from .tv import epg
-	lists = epg.channel_lists()
-	if lists:
-		bouquet, name, channels = lists[0]
-		epg.zap(session, channels[0].ref, bouquet)
+def back_to(session, service):
+	"""Live TV: the channel that was on when Home opened, if something else is playing now."""
+	if service is None:
+		return
+	playing = session.nav.getCurrentlyPlayingServiceReference()
+	if playing is None or playing.toString() != service.toString():
+		session.nav.playService(service)
 
 
 def rebind(original, name):
