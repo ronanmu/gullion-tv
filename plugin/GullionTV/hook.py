@@ -15,6 +15,7 @@ if hasattr(InfoBarGenerics.InfoBarMenu, "mainMenu"):
 else:
 	_METHOD, _ACTION = "showMainMenu", "showMenu"
 _original_main_menu = getattr(InfoBarGenerics.InfoBarMenu, _METHOD)
+_original_info = getattr(getattr(InfoBarGenerics, "InfoBarEPG", None), "InfoPressed", None)
 
 
 def _gullion_main_menu(self):
@@ -24,8 +25,20 @@ def _gullion_main_menu(self):
 		_original_main_menu(self)
 
 
+def _gullion_info(self):
+	"""INFO on live TV: Gullion TV's what's-on panel instead of the stock one."""
+	if config.plugins.gulliontv.enabled.value:
+		from .tv.nowinfo import ChannelInfo
+		self.session.open(ChannelInfo)
+	else:
+		_original_info(self)
+
+
 def install():
 	setattr(InfoBarGenerics.InfoBarMenu, _METHOD, _gullion_main_menu)
+	if _original_info is not None:
+		InfoBarGenerics.InfoBarEPG.InfoPressed = _gullion_info
+		rebind(_original_info, "InfoPressed")
 	# If InfoBar already exists, its ActionMap holds a bound copy of the old
 	# method, so point the action at the patched one.
 	infobar = _infobar()
@@ -41,6 +54,8 @@ def open_home(session):
 def open_techsupport_menu():
 	infobar = _infobar()
 	if infobar is not None:
+		from . import lock
+		lock.grant()  # Home has just had the PIN
 		_original_main_menu(infobar)
 
 
@@ -49,13 +64,32 @@ def _home_closed(action=None):
 	if infobar is None:
 		return
 	if action == "tv":
-		for name in ("showTv", "showTvChannelList", "openServiceList"):
-			fnc = getattr(infobar, name, None)
-			if fnc is not None:
-				fnc()
-				break
+		watch_first_channel(infobar.session)
 	elif action == "techsupport":
 		open_techsupport_menu()
+
+
+def watch_first_channel(session):
+	"""Watch TV goes straight to channel 1, the first channel in the first list."""
+	from .tv import epg
+	lists = epg.channel_lists()
+	if lists:
+		bouquet, name, channels = lists[0]
+		epg.zap(session, channels[0].ref, bouquet)
+
+
+def rebind(original, name):
+	"""An InfoBar that already exists holds bound copies of the old method in its action maps."""
+	infobar = _infobar()
+	if infobar is None:
+		return
+	for key in list(infobar.keys()):
+		actions = getattr(infobar[key], "actions", None)
+		if not isinstance(actions, dict):
+			continue
+		for action, fnc in list(actions.items()):
+			if getattr(fnc, "__func__", None) is original:
+				actions[action] = getattr(infobar, name)
 
 
 def _infobar():

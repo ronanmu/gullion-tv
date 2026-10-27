@@ -8,6 +8,10 @@ from enigma import eEPGCache, eServiceCenter, eServiceReference
 TV_BOUQUETS = '1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "bouquets.tv" ORDER BY bouquet'
 # Service flags for entries that aren't playable channels (markers, folders).
 _NOT_PLAYABLE = eServiceReference.isMarker | eServiceReference.isDirectory
+# A numbered marker is a hidden placeholder that still takes a channel number: the
+# Freesat lists made by AutoBouquetsMaker use them so Entertainment starts at 101.
+_NUMBERED = getattr(eServiceReference, "isNumberedMarker", 256)
+_HIDDEN = getattr(eServiceReference, "isInvisible", 512)
 
 
 class Channel(object):
@@ -38,23 +42,43 @@ class Event(object):
 
 
 def tv_bouquets():
-	"""[(bouquet ref string, name)] in the order the box numbers them."""
+	"""[(bouquet ref string, name)] in the order the box numbers them, hidden ones included."""
 	content = eServiceCenter.getInstance().list(eServiceReference(TV_BOUQUETS))
 	return content and content.getContent("SN", True) or []
 
 
 def channel_lists():
-	"""[(bouquet ref, name, [Channel])] with enigma2's default running numbering."""
+	"""[(bouquet ref, name, [Channel])] numbered as the box numbers them: one running count
+	through every bouquet, hidden ones and numbered placeholders included."""
+	centre = eServiceCenter.getInstance()
+	bouquets = []
+	content = centre.list(eServiceReference(TV_BOUQUETS))
+	for bouquet in content and content.getContent("R", True) or []:
+		entries = []
+		listing = centre.list(bouquet)
+		for service in listing and listing.getContent("R", True) or []:
+			entries.append((service.toString(), service.flags, lambda service=service: centre.info(service).getName(service)))
+		info = centre.info(bouquet)
+		bouquets.append((bouquet.toString(), info and info.getName(bouquet) or "", bool(bouquet.flags & _HIDDEN), entries))
+	return number_channels(bouquets)
+
+
+def number_channels(bouquets):
+	"""bouquets: [(ref, name, hidden, [(service ref, flags, name or a function giving it)])]."""
 	lists = []
 	number = 0
-	for ref, name in tv_bouquets():
+	for ref, name, hidden, entries in bouquets:
 		channels = []
-		content = eServiceCenter.getInstance().list(eServiceReference(ref))
-		for service in content and content.getContent("R", True) or []:
-			if service.flags & _NOT_PLAYABLE:
+		for service_ref, flags, service_name in entries:
+			if flags & _NUMBERED:
+				number += 1
+				continue
+			if flags & _NOT_PLAYABLE:
 				continue
 			number += 1
-			channels.append(Channel(service.toString(), _clean(eServiceCenter.getInstance().info(service).getName(service)), number))
+			if not hidden:
+				label = service_name() if callable(service_name) else service_name
+				channels.append(Channel(service_ref, _clean(label), number))
 		if channels:
 			lists.append((ref, _clean(name), channels))
 	return lists

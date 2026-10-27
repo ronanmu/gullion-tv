@@ -17,7 +17,8 @@ e2stubs.install()
 from GullionTV import hook, home, plugin, setup, watchagain  # noqa: E402
 from GullionTV.plex import client as plex, library as plexlibrary, setup as plexsetup  # noqa: E402
 from GullionTV.recordings import store as recordings, thumbnails  # noqa: E402
-from GullionTV.tv import converter, guide, infobar as banner, picon, serviceinfo  # noqa: E402
+from GullionTV.tv import converter, guide, infobar as banner, picon, renderer, serviceinfo  # noqa: E402
+from GullionTV.ui import icons as ui_icons  # noqa: E402
 from GullionTV.ui import background, pin, placeholder, popups, tiles  # noqa: E402
 from GullionTV.webcams import config as webcamconfig, screens as webcams, sources  # noqa: E402
 from GullionTV.weather import forecast  # noqa: E402
@@ -59,7 +60,86 @@ assert opened == ["home"], opened
 config.plugins.gulliontv.enabled.value = False
 e2stubs.InfoBarMenu.mainMenu(infobar)
 assert infobar.opened == "stock"
+opened[:] = []
+info_bar = e2stubs.InfoBarEPG()
+info_bar.session = types.SimpleNamespace(open=lambda cls, *a: opened.append(cls.__name__))
+config.plugins.gulliontv.enabled.value = True
+e2stubs.InfoBarEPG.InfoPressed(info_bar)
+assert opened == ["ChannelInfo"], opened
+config.plugins.gulliontv.enabled.value = False
+e2stubs.InfoBarEPG.InfoPressed(info_bar)
+assert info_bar.opened == "stock info"
 print("hook ok")
+config.plugins.gulliontv.enabled.value = True
+
+# Stock settings and plugin screens ask for the Tech Support PIN, whichever key opens them.
+from GullionTV import lock  # noqa: E402
+
+
+class FakeSession(object):
+	def __init__(self):
+		self.opened = []
+
+	def open(self, cls, *args, **kwargs):
+		dialog = types.SimpleNamespace(cls=cls, onClose=[], callback=None)
+		self.opened.append(dialog)
+		return dialog
+
+	def openWithCallback(self, callback, cls, *args, **kwargs):
+		dialog = self.open(cls, *args, **kwargs)  # as enigma2 does: through self.open
+		dialog.callback = callback
+		return dialog
+
+
+Menu = type("Menu", (), {})
+PluginBrowser = type("PluginBrowser", (), {})
+MainMenu = type("MainMenu", (Menu,), {})
+Harmless = type("EventView", (), {})
+locked_session = FakeSession()
+lock.install(locked_session)
+assert lock.is_locked(MainMenu) and not lock.is_locked(Harmless)
+locked_session.open(Harmless)
+assert locked_session.opened[-1].cls is Harmless, "ordinary screens open as normal"
+config.plugins.gulliontv.pin_set.value = True
+config.plugins.gulliontv.pin.value = 2580
+locked_session.openWithCallback(lambda *a: None, PluginBrowser)
+asking = locked_session.opened[-1]
+assert asking.cls is pin.TechSupportPin, asking.cls
+asking.callback(False)
+assert locked_session.opened[-1] is asking, "a wrong PIN opens nothing"
+locked_session.openWithCallback(lambda *a: None, PluginBrowser)
+locked_session.opened[-1].callback(True)
+browser = locked_session.opened[-1]
+assert browser.cls is PluginBrowser and browser.callback is not None
+locked_session.open(Menu)
+assert locked_session.opened[-1].cls is Menu, "screens opened from an unlocked one don't ask again"
+for fnc in browser.onClose:
+	fnc()
+locked_session.open(Menu)
+assert locked_session.opened[-1].cls is pin.TechSupportPin, "locked again once it closes"
+lock._open_unlocked[0] = 0
+lock.grant()
+locked_session.open(MainMenu)
+assert locked_session.opened[-1].cls is MainMenu, "Home's PIN lets the stock menu straight in"
+lock._open_unlocked[0] = 0
+locked_session.open(MainMenu)
+assert locked_session.opened[-1].cls is pin.TechSupportPin, "the grant is used once"
+lock._granted[:] = [time.time() - 60]
+locked_session.open(MainMenu)
+assert locked_session.opened[-1].cls is pin.TechSupportPin, "an old grant has expired"
+extensions = e2stubs.InfoBarExtensions()
+extensions.session = locked_session
+extensions.showExtensionSelection()
+assert locked_session.opened[-1].cls is pin.TechSupportPin and not hasattr(extensions, "opened")
+locked_session.opened[-1].callback(True)
+assert extensions.opened == "extensions"
+config.plugins.gulliontv.enabled.value = False
+lock._open_unlocked[0] = 0
+locked_session.open(PluginBrowser)
+assert locked_session.opened[-1].cls is PluginBrowser, "no lock while Gullion TV is off"
+config.plugins.gulliontv.enabled.value = True
+config.plugins.gulliontv.pin_set.value = False
+print("lock ok")
 
 session = e2stubs.fake_session(now=(0, 3600, "Nationwide"), upcoming=(3600, 1800, "Fair City"))
 screen = home.GullionHome(session)
@@ -95,6 +175,25 @@ keys["green"]()
 assert session.opened[-1] == ("Guide",)
 keys["red"]()
 assert screen.closed == ("tv",)
+from GullionTV.tv import epg as guide_epg  # noqa: E402
+zaps, real = [], (guide_epg.channel_lists, guide_epg.zap)
+guide_epg.channel_lists = lambda: [("bouquet1", "Saorview", [guide_epg.Channel("ref1", "RTÉ One", 1), guide_epg.Channel("ref2", "RTÉ2", 2)])]
+guide_epg.zap = lambda session, ref, bouquet: zaps.append((ref, bouquet))
+hook.watch_first_channel(None)
+assert zaps == [("ref1", "bouquet1")], "Watch TV goes to channel 1"
+guide_epg.channel_lists, guide_epg.zap = real
+
+# Numbering matches the box's: placeholders and hidden lists still take numbers.
+real_service = 0
+marker, numbered_marker = guide_epg.eServiceReference.isMarker, 256
+numbered = guide_epg.number_channels([
+	("b1", "Saorview", False, [("m", marker, "Saorview"), ("rte1", real_service, "RTÉ One"), ("p", numbered_marker, "")] + [("p", numbered_marker, "")] * 98),
+	("b101", "Entertainment", False, [("m", marker, "Entertainment"), ("bbc1", real_service, "BBC One NI HD"), ("p", numbered_marker, "")]),
+	("b400", "Lifestyle", True, [("p", numbered_marker, "")] * 100 + [("hidden", real_service, "Hidden")]),
+	("b600", "Children", False, [("cbbc", real_service, lambda: "CBBC")]),
+])
+assert [name for _, name, _ in numbered] == ["Saorview", "Entertainment", "Children"], "hidden lists aren't shown"
+assert [(c.name, c.number) for _, _, channels in numbered for c in channels] == [("RTÉ One", 1), ("BBC One NI HD", 101), ("CBBC", 204)]
 print("navigation ok")
 
 config.plugins.gulliontv.pin.value = 1234
@@ -183,11 +282,55 @@ hints = [el.get("text") for el in ET.fromstring(guide.Guide.skin).iter("eLabel")
 assert hints == ["-24h", "+24h", "List", "Now"], hints
 print("guide picon ok")
 
+# Typing a channel number jumps to it.
+g = guide.Guide(session)
+g.layout()
+assert not g["number_entry"].visible
+numbers = [c.number for _, _, channels in g.lists for c in channels]
+target = numbers[-1]
+for digit in str(target):
+	g.type_digit(int(digit))
+if g.typed:
+	g.go_to_number()  # the 2-second pause
+assert g.channels[g.row].number == target and not g["number_entry"].visible, (g.channels[g.row].number, target)
+g.type_digit(0)
+assert g.typed == "", "a leading 0 is ignored"
+missing = max(numbers) + 1
+for digit in str(missing):
+	g.type_digit(int(digit))
+if g.typed:
+	g.go_to_number()
+assert g["number_entry"].text == "No channel %d" % missing and g["number_entry"].visible
+g.hide_number()
+assert not g["number_entry"].visible
+g.type_digit(1)
+g.cancel()
+assert g.typed == "" and not getattr(g, "closed", None), "BACK clears a half-typed number first"
+guide.Guide.last_list = 0
+
 g = guide.Guide(session)
 g.layout()
 g.ok()
 assert session.zapped == [g.channels[0].ref] and g.closed == ("watch",)
 print("guide ok")
+
+# INFO on live TV: now, and what's coming up.
+from GullionTV.tv import nowinfo  # noqa: E402
+info = nowinfo.ChannelInfo(session)
+for widget in ET.fromstring(nowinfo.ChannelInfo.skin).iter("widget"):
+	assert widget.get("name") in info, "skin widget %s missing from the info panel" % widget.get("name")
+info.ref = g.channels[0].ref
+info.layout()
+coming = [info["next%d" % i].text for i in range(nowinfo.COMING_UP)]
+assert info["title"].text and info["title"].text != "No programme information", info["title"].text
+assert coming[0], "the next programme is listed"
+assert info["channel"].text.startswith("1  "), info["channel"].text
+info.ref = "1:0:19:1:1:1:EEEE0000:0:0:0:"
+info.draw_icons("Kay gives Dom an ultimatum. (HD, S, AD)")
+shown = [info["icon%d" % i].instance.pixmap if info["icon%d" % i].visible else None for i in range(nowinfo.ICON_SLOTS)]
+assert [os.path.basename(p).rsplit("_", 1)[0] if p else None for p in shown] == ["terrestrial", "hd", "audio_description", "subtitles", None, None], shown
+assert "(HD" not in info["description"].text, info["description"].text
+print("info panel ok")
 
 # Channel banner: plain-language service facts.
 assert serviceinfo.delivery("1:0:19:1:1:1:EEEE0000:0:0:0:") == "Terrestrial"
@@ -200,6 +343,14 @@ assert not serviceinfo.is_hd("1:0:1:1:1:1:EEEE0000:0:0:0:")
 assert not serviceinfo.is_hd("1:0:19:1:1:1:EEEE0000:0:0:0:", 576), "decoded height wins over service type"
 assert serviceinfo.is_hd("1:0:1:1:1:1:EEEE0000:0:0:0:", 1080)
 assert serviceinfo.remaining(65 * 60) == "1 hr 5 min left"
+assert serviceinfo.split_codes("Homeowners compete for the title. (HD, S, R)") == ("Homeowners compete for the title.", ["HD", "S", "R"])
+assert serviceinfo.split_codes("A trip across the USA (USA)") == ("A trip across the USA (USA)", []), "other brackets stay"
+assert serviceinfo.split_codes("No codes here") == ("No codes here", [])
+assert serviceinfo.split_codes("Contains strong language. [S,AD] [HD]") == ("Contains strong language.", ["S", "AD", "HD"]), "Freesat's form"
+assert serviceinfo.badges("Kay gives Dom an ultimatum. (HD, S, AD, SL)") == ["S", "AD", "SL"], "HD comes from the channel"
+assert serviceinfo.delivery_kind("1:0:19:1:1:1:EEEE0000:0:0:0:") == "terrestrial"
+assert serviceinfo.delivery_kind("1:0:19:1B58:802:2:11A0000:0:0:0:") == "satellite"
+assert serviceinfo.delivery_kind("4097:0:1:0:0:0:0:0:0:0:https%3a//example.ie/live.m3u8:Church") == "internet"
 print("service info ok")
 
 saorview_hd = "1:0:19:1:1:1:EEEE0000:0:0:0:"
@@ -217,12 +368,31 @@ c.changed((c.CHANGED_SPECIFIC, 6))
 assert not c.notified, "unrelated service events are ignored"
 c.changed((c.CHANGED_SPECIFIC, 0))
 assert c.notified and not converter._numbers, "a channel change re-reads channel numbers"
+event_now = types.SimpleNamespace(event=types.SimpleNamespace(getShortDescription=lambda: "",
+	getExtendedDescription=lambda: "Kay gives Dom an ultimatum. (HD, S, AD)"))
+playing = {"ref": saorview_hd, "height": 1080}
+converter._playing = lambda: (playing["ref"], playing["height"])
+row = []
+for slot in range(1, 6):
+	c = converter.GullionServiceInfo("Icon:%d" % slot)
+	c.source = event_now
+	row.append(c.text)
+assert row == ["terrestrial", "hd", "audio_description", "subtitles", ""], row
+playing["height"] = 576
+c = converter.GullionServiceInfo("Icon:2")
+c.source = event_now
+assert c.text == "audio_description", "no icon for SD"
+playing["height"] = 2160
+assert converter.GullionServiceInfo("Icon:2").__class__ and serviceinfo.icon_row(saorview_hd, 2160, "")[0] == "uhd"
+assert serviceinfo.icon_row("1:0:1:1:1:1:EEEE0000:0:0:0:", -1, "Old film. (R)") == ["repeat", "terrestrial"]
+for name in ("hd", "uhd", "subtitles", "audio_description", "sign_language", "repeat", "satellite", "terrestrial", "cable", "internet"):
+	assert os.path.isfile(ui_icons.icon_path(name)), ui_icons.icon_path(name)
 print("converter ok")
 
 import skin  # noqa: E402  the stub
 skin.domScreens = {"InfoBar": ("stock InfoBar element", "/usr/share/enigma2/skin")}  # OpenATV 6.4's name
 config.plugins.gulliontv.infobar.value = True
-plugin.sessionstart(0, session=object())
+plugin.sessionstart(0, session=FakeSession())
 element, path = skin.domScreens["InfoBar"]
 assert skin.dom_screens["InfoBar"][0] == "stock InfoBar element", "OpenATV 6.4's table is used when it's there"
 del skin.domScreens
@@ -230,16 +400,21 @@ banner.install()
 assert skin.dom_screens["InfoBar"][0].get("name") == "InfoBar", "newer images' table otherwise"
 assert element.get("name") == "InfoBar" and path.endswith("GullionTV")
 assert sys.modules["Components.Converter.GullionServiceInfo"] is converter
+assert sys.modules["Components.Renderer.GullionIcon"] is renderer
 known = {"ServiceName", "FrontendInfo", "GullionServiceInfo", "ClockToText", "ConditionalShowHide", "EventTime", "EventName"}
 for widget in element.iter("widget"):
 	assert widget.get("source"), "banner widgets must come from sources, not screen code"
 	x, y = [int(v) for v in widget.get("position").split(",")]
 	w, h = [int(v) for v in widget.get("size").split(",")]
-	assert 0 <= x and x + w <= 1920 and banner.PANEL_Y <= y and y + h <= banner.PANEL_Y + 284, widget.attrib
+	assert 0 <= x and x + w <= 1920 and banner.PANEL_Y <= y and y + h <= banner.PANEL_Y + banner.PANEL_H, widget.attrib
 	for convert in widget.iter("convert"):
 		assert convert.get("type") in known, convert.get("type")
 		if convert.get("type") == "GullionServiceInfo":
-			assert convert.text in ("Delivery", "Number", "Name", "IsHD", "Remaining"), convert.text
+			assert convert.text in ("Delivery", "Number", "Name", "IsHD", "Remaining") or convert.text.startswith("Icon:"), convert.text
+assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
+for name in ("NumberZap", "Volume"):
+	popup, path = skin.dom_screens[name]
+	assert popup.get("name") == name and path.endswith("GullionTV")
 print("infobar ok")
 
 # Webcams: the config file.
@@ -478,7 +653,9 @@ screen = watchagain.WatchAgain(session, sample_plex.configured_settings())
 for widget in ET.fromstring(watchagain.WatchAgain.skin).iter("widget"):
 	name = widget.get("name")
 	assert name is None or name in screen, "skin widget %s missing from Watch again" % name
+del session.nav.played[:]
 screen.layout()
+assert session.nav.played == [None], "live TV stops while Watch again is open"
 screen.background.wait()
 assert [section["title"] for section in screen.sections] == ["Continue watching", "Recently added to Plex", "Recorded TV"]
 assert [tile.title for tile in screen.sections[0]["tiles"]] == ["Fair City", "Line of Duty", "The Commitments"], "most recently watched first"

@@ -35,9 +35,48 @@ def clock(path, size, face, hands):
 	print(path)
 
 
+# Material Symbols (Apache 2.0) for the banner and INFO panel. The font isn't kept in
+# the repository; fetch it once and pass its folder:
+#   https://github.com/google/material-design-icons/tree/master/variablefont
+#   MATERIAL=/path/to/folder python3 tools/make_images.py
+ICONS = {
+	"hd": "hd", "uhd": "4k", "subtitles": "subtitles", "audio_description": "audio_description",
+	"sign_language": "sign_language", "repeat": "replay",
+	"satellite": "satellite_alt", "terrestrial": "cell_tower", "cable": "cable", "internet": "language",
+}
+ICON_SIZES = (20, 27, 40, 80)  # 40 px at 1920 wide
+
+
+def material_icons(folder, out):
+	from PIL import ImageFont
+	font_path = os.path.join(folder, "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf")
+	if not os.path.isfile(font_path):
+		font_path = os.path.join(folder, "MaterialSymbolsOutlined.ttf")
+	codepoints = {}
+	for name in ("MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].codepoints", "codepoints"):
+		if os.path.isfile(os.path.join(folder, name)):
+			codepoints = dict(line.split() for line in open(os.path.join(folder, name)) if line.strip())
+			break
+	if not os.path.isdir(out):
+		os.makedirs(out)
+	for size in ICON_SIZES:
+		big = size * SUPERSAMPLE
+		font = ImageFont.truetype(font_path, big)
+		font.set_variation_by_axes([0, 0, 48, 400])  # outlined, regular weight
+		for name, symbol in sorted(ICONS.items()):
+			image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+			glyph = chr(int(codepoints[symbol], 16))
+			ImageDraw.Draw(image).text((big / 2.0, big / 2.0), glyph, font=font, fill=_rgba(theme.TEXT), anchor="mm")
+			path = os.path.join(out, "%s_%d.png" % (name, size))
+			image.resize((size, size), Image.LANCZOS).save(path)
+			print(path)
+
+
 if __name__ == "__main__":
 	if not os.path.isdir(OUT):
 		os.makedirs(OUT)
 	# One size per common skin: 26 px at 1920 wide, 17 at 1280, 13 and 10 for smaller skins, 52 for 4K.
 	for size in (10, 13, 17, 26, 52):
 		clock(os.path.join(OUT, "rec_clock_%d.png" % size), size, theme.KEY_RED, theme.TEXT)
+	if os.environ.get("MATERIAL"):
+		material_icons(os.environ["MATERIAL"], os.path.join(OUT, "icons"))

@@ -34,7 +34,7 @@ def _tile_skin(index):
 		<widget name="tile%(i)d_frame" position="%(fx)d,%(fy)d" size="%(fw)d,%(fh)d" backgroundColor="%(bg)s" zPosition="1" />
 		<widget name="tile%(i)d_backdrop" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" backgroundColor="%(card)s" zPosition="2" />
 		<widget name="tile%(i)d_initial" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" font="Regular;28" halign="center" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="3" />
-		<widget name="tile%(i)d_image" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" zPosition="4" />
+		<widget name="tile%(i)d_image" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" zPosition="4" alphatest="blend" />
 		<widget name="tile%(i)d_group" position="%(gx)d,%(gy)d" size="240,36" font="Regular;22" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(bg)s" zPosition="5" />
 		<widget name="tile%(i)d_band" position="%(x)d,%(by)d" size="%(w)d,%(bh)d" backgroundColor="%(card)s" zPosition="2" />
 		<widget name="tile%(i)d_name" position="%(tx)d,%(ny)d" size="%(tw)d,44" font="Regular;34" foregroundColor="%(text)s" transparent="1" zPosition="3" />

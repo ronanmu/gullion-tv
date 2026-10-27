@@ -65,6 +65,24 @@ def _day_bar_skin():
 	return "".join(parts)
 
 
+HINTS = 3
+HINT_X, HINT_Y, HINT_W, KEY_W, KEY_H = 340, 386, 330, 96, 40
+
+
+def _key_hints_skin():
+	"""OK, REC and INFO drawn as outlined keys, each followed by what it does."""
+	parts = []
+	for i in range(HINTS):
+		x = HINT_X + i * HINT_W
+		parts.append('<widget name="hint%d_edge" position="%d,%d" size="%d,%d" backgroundColor="%s" zPosition="1" />'
+			% (i, x, HINT_Y, KEY_W, KEY_H, theme.TEXT_MUTED))
+		parts.append('<widget name="hint%d_key" position="%d,%d" size="%d,%d" font="Regular;24" halign="center" valign="center" '
+			'foregroundColor="%s" backgroundColor="%s" zPosition="2" />' % (i, x + 2, HINT_Y + 2, KEY_W - 4, KEY_H - 4, theme.TEXT, theme.BACKGROUND))
+		parts.append('<widget name="hint%d" position="%d,%d" size="%d,%d" font="Regular;26" valign="center" foregroundColor="%s" transparent="1" />'
+			% (i, x + KEY_W + 14, HINT_Y, HINT_W - KEY_W - 24, KEY_H, theme.TEXT))
+	return "".join(parts)
+
+
 class Guide(Screen):
 	skin = """
 	<screen name="GullionGuide" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
@@ -82,10 +100,11 @@ class Guide(Screen):
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
 		<widget name="ev_rec" position="1000,212" size="320,42" font="Regular;30" halign="right" foregroundColor="%(red)s" transparent="1" />
 		<widget name="ev_desc" position="340,264" size="980,110" font="Regular;28" foregroundColor="%(text)s" transparent="1" />
-		<widget name="hints" position="340,388" size="980,36" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
+		%(key_hints)s
 
 		<widget source="session.VideoPicture" render="Pig" position="1370,150" size="460,259" zPosition="1" backgroundColor="#ff000000" />
 		<widget name="pig_name" position="1370,371" size="300,38" font="Regular;24" foregroundColor="%(text)s" backgroundColor="%(bg)s" zPosition="3" />
+		<widget name="number_entry" position="1370,150" size="460,90" font="Regular;48" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(card)s" zPosition="4" />
 
 		<eLabel position="90,450" size="1740,52" backgroundColor="%(daybar_bg)s" />
 		%(daybar_markup)s
@@ -98,7 +117,7 @@ class Guide(Screen):
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "card": theme.CARD,
 		"accent": theme.ACCENT, "red": theme.KEY_RED, "yellow": theme.KEY_YELLOW, "live": theme.LIVE,
-		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(),
+		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(), "key_hints": _key_hints_skin(),
 		"gx": GRID_X, "gy": GRID_Y, "gw": GRID_W, "gh": ROWS * ROW_H, "ry": RULER_Y,
 		"ny": NOW_Y, "nh": GRID_Y - NOW_Y,
 	}
@@ -111,8 +130,11 @@ class Guide(Screen):
 		Screen.__init__(self, session)
 		self.setTitle("TV guide")
 
-		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note"):
+		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
 			self[name] = Label()
+		for i in range(HINTS):
+			for name in ("hint%d_edge", "hint%d_key", "hint%d"):
+				self[name % i] = Label()
 		self["picon"] = Pixmap()
 		self.rec_icon = LoadPixmap(rec_icon_path(), cached=True)
 		self.picons = tiles.Pictures(220, 132)
@@ -139,13 +161,25 @@ class Guide(Screen):
 		self.focus = self.now
 		self.open_on_current_channel()
 
+		# Typing a channel number jumps to it, as it does on live TV.
+		self.typed = ""
+		self.number_timer = eTimer()
+		self.number_timer.callback.append(self.go_to_number)
+		self.hide_timer = eTimer()
+		self.hide_timer.callback.append(self.hide_number)
+
+		actions = dict((str(n), lambda n=n: self.type_digit(n)) for n in range(10))
+		self["numbers"] = ActionMap(["NumberActions"], actions, -1)
 		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "ColorActions", "EPGSelectActions", "InfobarInstantRecord", "MenuActions"], {
 			"up": lambda: self.move_row(-1),
 			"down": lambda: self.move_row(1),
 			"left": self.previous_event,
 			"right": self.next_event,
+			# CH+/- page: nextBouquet/prevBouquet on OpenATV 6.4, nextService/prevService on 7.x.
 			"nextBouquet": lambda: self.move_row(-ROWS),
 			"prevBouquet": lambda: self.move_row(ROWS),
+			"nextService": lambda: self.move_row(-ROWS),
+			"prevService": lambda: self.move_row(ROWS),
 			"red": lambda: self.shift_day(-1),
 			"green": lambda: self.shift_day(1),
 			"yellow": self.next_list,
@@ -153,7 +187,7 @@ class Guide(Screen):
 			"ok": self.ok,
 			"info": self.show_details,
 			"instantRecord": self.record_key,
-			"cancel": self.close,
+			"cancel": self.cancel,
 			"menu": self.close,
 		}, -1)
 
@@ -208,14 +242,60 @@ class Guide(Screen):
 
 	def open_on_current_channel(self):
 		current = epg.current_ref(self.session)
+		if not self.show_channel(lambda channel: channel.ref == current):
+			self.select_at(self.focus)
+
+	def show_channel(self, wanted):
+		"""Put the first channel wanted(channel) is true for on screen, in whichever list has it."""
 		for index, (bouquet, name, channels) in enumerate(self.lists):
 			for row, channel in enumerate(channels):
-				if channel.ref == current:
+				if wanted(channel):
 					self.list_index, self.row = index, row
 					self.top = max(0, min(row - 2, len(channels) - ROWS))
 					self.select_at(self.focus)
-					return
-		self.select_at(self.focus)
+					return True
+		return False
+
+	# Channel numbers
+
+	def type_digit(self, n):
+		if not self.typed and n == 0:
+			return  # there's no channel 0
+		self.typed += str(n)
+		self["number_entry"].setText("Channel %s" % self.typed)
+		self["number_entry"].show()
+		# Go straight there once another digit couldn't make a channel that exists.
+		highest = max([channel.number for bouquet, name, channels in self.lists for channel in channels] or [0])
+		if int(self.typed) * 10 > highest:
+			self.go_to_number()
+		else:
+			self.number_timer.start(2000, True)
+
+	def go_to_number(self):
+		self.number_timer.stop()
+		typed, self.typed = self.typed, ""
+		if not typed:
+			return
+		number = int(typed)
+		if self.show_channel(lambda channel: channel.number == number):
+			Guide.last_list = self.list_index
+			self["number_entry"].hide()
+			self.redraw()
+		else:
+			self["number_entry"].setText("No channel %d" % number)
+			self.hide_timer.start(2000, True)
+
+	def hide_number(self):
+		if not self.typed:
+			self["number_entry"].hide()
+
+	def cancel(self):
+		if self.typed:
+			self.number_timer.stop()
+			self.typed = ""
+			self["number_entry"].hide()
+			return
+		self.close()
 
 	# Navigation
 
@@ -361,6 +441,7 @@ class Guide(Screen):
 	def layout_finished(self):
 		if self["grid"].instance is not None:
 			self["grid"].instance.setSelectionEnable(False)
+		self["number_entry"].hide()
 		self.redraw()
 
 	def tick(self):
@@ -463,6 +544,7 @@ class Guide(Screen):
 			self["ev_title"].setText("No programme information" if channel else "No channels yet")
 			for name in ("ev_time", "ev_rec", "ev_desc", "hints"):
 				self[name].setText("")
+			self.draw_hints([])
 			return
 		self["ev_title"].setText(event.title)
 		self["ev_time"].setText(self.when(event))
@@ -473,11 +555,23 @@ class Guide(Screen):
 		else:
 			self["ev_rec"].setText("")
 		able = recordings.can_record(self.storage)
-		hints = ["OK  Watch" if airing else ("OK  Record options" if able else "")]
+		hints = [("OK", "Watch")] if airing else ([("OK", "Record options")] if able else [])
 		if able:
-			hints.append("REC  Record")
-		hints.append("INFO  More details")
-		self["hints"].setText("          ".join(hint for hint in hints if hint))
+			hints.append(("REC", "Record"))
+		hints.append(("INFO", "More details"))
+		self["hints"].setText("          ".join("%s  %s" % hint for hint in hints))
+		self.draw_hints(hints)
+
+	def draw_hints(self, hints):
+		for i in range(HINTS):
+			key, label = hints[i] if i < len(hints) else ("", "")
+			self["hint%d_key" % i].setText(key)
+			self["hint%d" % i].setText(label)
+			for name in ("hint%d_edge", "hint%d_key"):
+				if key:
+					self[name % i].show()
+				else:
+					self[name % i].hide()
 
 	def draw_picon(self, channel):
 		"""The channel's logo, or its name on a card when there's no picon for it."""

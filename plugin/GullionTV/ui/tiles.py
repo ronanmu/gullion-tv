@@ -52,9 +52,9 @@ def skin(prefix, x, y, width, image_height, band_height=72, badge_width=96, name
 		<widget name="%(p)s_frame" position="%(fx)d,%(fy)d" size="%(fw)d,%(fh)d" backgroundColor="%(bg)s" zPosition="1" />
 		<widget name="%(p)s_backdrop" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" backgroundColor="%(card)s" zPosition="2" />
 		<widget name="%(p)s_initial" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" font="Regular;24" halign="center" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="3" />
-		<widget name="%(p)s_image" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" zPosition="4" />
-		<widget name="%(p)s_poster" position="%(x)d,%(y)d" size="%(pw)d,%(ih)d" zPosition="4" />
-		<widget name="%(p)s_logo" position="%(cx)d,%(cy)d" size="%(lw)d,%(lh)d" zPosition="5" />
+		<widget name="%(p)s_image" position="%(x)d,%(y)d" size="%(w)d,%(ih)d" zPosition="4" alphatest="blend" />
+		<widget name="%(p)s_poster" position="%(x)d,%(y)d" size="%(pw)d,%(ih)d" zPosition="4" alphatest="blend" />
+		<widget name="%(p)s_logo" position="%(cx)d,%(cy)d" size="%(lw)d,%(lh)d" zPosition="5" alphatest="blend" />
 		<widget name="%(p)s_badge" position="%(cx)d,%(cy)d" size="%(bw)d,34" font="Regular;22" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(bg)s" zPosition="5" />
 		<widget name="%(p)s_progress" position="%(x)d,%(py)d" size="%(w)d,6" foregroundColor="%(live)s" backgroundColor="%(divider)s" borderWidth="0" zPosition="5" />
 		<widget name="%(p)s_band" position="%(x)d,%(by)d" size="%(w)d,%(bh)d" backgroundColor="%(card)s" zPosition="2" />
@@ -135,7 +135,8 @@ def colour(widget, background=None, foreground=None):
 
 class Pictures(object):
 	"""Decoded pictures, scaled to fit a given design size (scaled to the skin) with their
-	shape kept. Transparent parts are filled with the background colour."""
+	shape kept. Transparent parts are filled with the background colour on OpenATV 6.4;
+	7.x leaves them clear, so picture widgets blend over the card behind them."""
 
 	def __init__(self, width, height, background=theme.CARD):
 		self.cache = {}

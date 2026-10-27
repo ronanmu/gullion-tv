@@ -189,6 +189,16 @@ class InfoBarMenu(object):
 		self.opened = "stock"
 
 
+class InfoBarExtensions(object):
+	def showExtensionSelection(self):
+		self.opened = "extensions"
+
+
+class InfoBarEPG(object):
+	def InfoPressed(self):
+		self.opened = "stock info"
+
+
 class MoviePlayer(Screen):
 	def __init__(self, session, service, *args):
 		Screen.__init__(self, session)
@@ -215,15 +225,16 @@ def _module(name, **attrs):
 
 
 def install():
-	for package in ("Components", "Components.Sources", "Components.Converter", "Screens", "Plugins", "Tools"):
+	for package in ("Components", "Components.Sources", "Components.Converter", "Components.Renderer", "Screens", "Plugins", "Tools"):
 		_module(package)
 	_module("enigma", eTimer=Timer, gRGB=lambda value: value, gFont=lambda name, size: size,
 		ePoint=lambda x, y: (x, y), eRect=lambda *args: args, eListboxPythonMultiContent=object,
-		eEPGCache=object, eServiceCenter=object, eServiceReference=eServiceReference, ePicLoad=PicLoad,
+		eEPGCache=object, eServiceCenter=object, eServiceReference=eServiceReference, ePicLoad=PicLoad, ePixmap=object,
 		iPlayableService=types.SimpleNamespace(evStart=0, evEnd=1, evUpdatedInfo=4, evVideoSizeChanged=10, evSeekableStatusChanged=6),
 		iServiceInformation=types.SimpleNamespace(sVideoHeight=0, sServiceref=143),
 		RT_HALIGN_LEFT=0, RT_HALIGN_RIGHT=1, RT_HALIGN_CENTER=2, RT_VALIGN_TOP=0, RT_VALIGN_CENTER=4, RT_VALIGN_BOTTOM=8)
 	_module("Components.MenuList", MenuList=MenuList)
+	_module("Components.Renderer.Renderer", Renderer=type("Renderer", (object,), {}))
 	_module("Components.Pixmap", Pixmap=Pixmap)
 	_module("Tools.LoadPixmap", LoadPixmap=lambda path, desktop=None, cached=False: path)
 	_module("timer", TimerEntry=types.SimpleNamespace(StateWaiting=0, StatePrepared=1, StateRunning=2, StateEnded=3))
@@ -245,7 +256,7 @@ def install():
 	_module("ServiceReference", ServiceReference=lambda ref: types.SimpleNamespace(
 		getServiceName=lambda: getattr(ref, "name", None) or SERVICE_NAMES.get(ref, "")))
 	_module("Screens.Screen", Screen=Screen)
-	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu)
+	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu, InfoBarExtensions=InfoBarExtensions, InfoBarEPG=InfoBarEPG)
 	_module("Screens.InfoBar", InfoBar=type("InfoBar", (), {"instance": None}), MoviePlayer=MoviePlayer)
 	_module("Plugins.Plugin", PluginDescriptor=type("PluginDescriptor", (Obj,), {"WHERE_SESSIONSTART": 1, "WHERE_PLUGINMENU": 2}))
 	sys.path.insert(0, os.path.abspath(PLUGIN_PARENT))

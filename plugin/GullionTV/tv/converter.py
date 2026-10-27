@@ -8,6 +8,9 @@ Components.Converter.GullionServiceInfo by infobar.install().
 	                                    Name puts the channel number in front
 	IsHD       (session.CurrentService) boolean, for ConditionalShowHide
 	Remaining  (session.Event_Now)      "18 min left"
+	Icon:N     (session.Event_Now)      the Nth icon from the right of the programme's
+	                                    row (access codes, hd/uhd, delivery), for the
+	                                    GullionIcon renderer; "" when there are fewer
 """
 import time
 
@@ -22,6 +25,19 @@ _SERVICE_EVENTS = (iPlayableService.evStart, iPlayableService.evUpdatedInfo, iPl
 _numbers = {}
 
 
+def _playing():
+	"""(reference, picture height) of what's on, for converters whose source is an event."""
+	try:
+		import NavigationInstance
+		service = NavigationInstance.instance.getCurrentService()
+	except Exception:
+		return "", -1
+	info = service and service.info()
+	if not info:
+		return "", -1
+	return info.getInfoString(iServiceInformation.sServiceref), info.getInfo(iServiceInformation.sVideoHeight)
+
+
 class GullionServiceInfo(Poll, Converter, object):
 	def __init__(self, type):
 		Converter.__init__(self, type)
@@ -30,6 +46,21 @@ class GullionServiceInfo(Poll, Converter, object):
 		if type == "Remaining":
 			self.poll_interval = 30000
 			self.poll_enabled = True
+		elif type.startswith("Icon:"):
+			# HD is only certain once the picture is decoding, a moment after the event arrives.
+			self.poll_interval = 5000
+			self.poll_enabled = True
+
+	def icon(self):
+		"""Icon:1 is the rightmost, Icon:2 the one before, so the row packs to the right."""
+		event = self.source.event
+		text = ""
+		if event is not None:
+			text = "%s %s" % (event.getShortDescription() or "", event.getExtendedDescription() or "")
+		ref, height = _playing()
+		names = serviceinfo.icon_row(ref, height, text.strip())
+		position = int(self.type.split(":")[1])
+		return names[-position] if position <= len(names) else ""
 
 	def service_details(self):
 		service = self.source.service
@@ -40,6 +71,8 @@ class GullionServiceInfo(Poll, Converter, object):
 
 	@cached
 	def getText(self):
+		if self.type.startswith("Icon:"):
+			return self.icon()
 		if self.type == "Remaining":
 			event = self.source.event
 			if event is None:

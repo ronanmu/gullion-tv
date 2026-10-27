@@ -4,6 +4,7 @@
 A reference looks like 1:0:19:SID:TSID:ONID:NAMESPACE:0:0:0: — field 2 is the
 service type and the top half of the namespace says where the signal comes from.
 """
+import re
 
 # DVB service types that carry HD video: MPEG-2 HD, H.264 HD, HEVC.
 HD_TYPES = (0x11, 0x19, 0x1F, 0x20)
@@ -36,6 +37,10 @@ def delivery(ref):
 	return "Satellite  ·  %.1f°E" % (position / 10.0)
 
 
+def is_uhd(video_height=-1):
+	return video_height >= 1800
+
+
 def is_hd(ref, video_height=-1):
 	"""Trust the decoded picture height once it's known, else the service type."""
 	if video_height and video_height > 0:
@@ -60,3 +65,55 @@ def channel_numbers(lists):
 		for channel in channels:
 			numbers.setdefault(key(channel.ref), channel.number)
 	return numbers
+
+
+# The access codes broadcasters put at the end of a description: "... (HD, S, AD, R)"
+# on Saorview, "... [S,AD] [HD]" on Freesat.
+CODES = ("HD", "UHD", "W", "S", "AD", "SL", "R")
+# The ones shown as icons, and the icon for each. HD comes from the channel itself.
+BADGES = ("S", "AD", "SL", "R")
+BADGE_ICONS = {"S": "subtitles", "AD": "audio_description", "SL": "sign_language", "R": "repeat"}
+_GROUP_AT_END = re.compile(r"\s*[\(\[]\s*([A-Z]{1,3}(?:\s*,\s*[A-Z]{1,3})*)\s*[\)\]]\s*$")
+
+
+def split_codes(text):
+	"""(description without the codes, [codes]). Brackets with anything else, like (USA), are kept."""
+	text = text or ""
+	codes = []
+	while True:
+		match = _GROUP_AT_END.search(text)
+		if not match:
+			break
+		group = [code.strip() for code in match.group(1).split(",")]
+		if not all(code in CODES for code in group):
+			break
+		codes = group + codes
+		text = text[:match.start()].rstrip()
+	return text, codes
+
+
+def badges(text):
+	"""The access badges a description ends with, in its own order: ["S", "AD"]."""
+	return [code for code in split_codes(text)[1] if code in BADGES]
+
+
+def delivery_kind(ref):
+	"""satellite, terrestrial, cable or internet, for the matching icon; "" if unknown."""
+	text = delivery(ref)
+	if text.startswith("Satellite"):
+		return "satellite"
+	return {"Terrestrial": "terrestrial", "Cable": "cable", "Internet stream": "internet"}.get(text, "")
+
+
+def icon_row(ref, video_height, description):
+	"""The icons for a programme, left to right: its access codes, then hd or uhd when the
+	picture is (nothing for SD), then how the channel arrives."""
+	names = [BADGE_ICONS[code] for code in badges(description)]
+	if is_uhd(video_height):
+		names.append("uhd")
+	elif is_hd(ref, video_height):
+		names.append("hd")
+	kind = delivery_kind(ref)
+	if kind:
+		names.append(kind)
+	return names

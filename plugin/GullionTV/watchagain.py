@@ -137,6 +137,9 @@ class WatchAgain(Screen):
 		self.offsets = {}
 		self.button = 0
 		self.moved = False
+		# Live TV is stopped while choosing something to watch, so it can't show
+		# through the pictures, and started again on the way out.
+		self.live = session.nav.getCurrentlyPlayingServiceReference()
 		self.build()
 
 		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "MenuActions"], {
@@ -153,6 +156,7 @@ class WatchAgain(Screen):
 	# Loading
 
 	def started(self):
+		self.session.nav.stopService()
 		self.paint()
 		self.load()
 
@@ -188,6 +192,8 @@ class WatchAgain(Screen):
 
 	def leave(self):
 		self.background.stop()
+		if self.live is not None:
+			self.session.nav.playService(self.live)
 		self.close()
 
 	# Rows
@@ -289,6 +295,8 @@ class WatchAgain(Screen):
 			self.session.open(GullionChoice, thing.heading, [("OK", None)], "Playing from Plex arrives in the next update.")
 
 	def reload(self, *args):
+		# The player may have started live TV again as it closed.
+		self.session.nav.stopService()
 		self.load()
 
 	# Drawing

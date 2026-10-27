@@ -9,6 +9,11 @@ def sessionstart(reason, session=None, **kwargs):
 		from .hook import install
 		install()
 		try:
+			from . import lock
+			lock.install(session)
+		except Exception as error:
+			print("[GullionTV] stock screens not locked: %s" % error)
+		try:
 			from .recordings import thumbnails
 			thumbnails.watch_recordings(session)
 		except Exception as error:
