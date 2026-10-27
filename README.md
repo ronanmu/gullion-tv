@@ -13,8 +13,7 @@ Gullion TV was made for an older relative, though it suits anyone who finds set-
   the matching red, green, yellow or blue button of the remote. The text is large and high-contrast, and the wording
   is plain ("18 min left", not "EPG" or "bouquet"). BACK always goes back one step.
 - **One channel list for Saorview and Freesat.** Enigma2 boxes are one of the few ways to combine both Irish terrestrial (Saorview, DVB-T2) and UK
-  satellite (Freesat, DVB-S2) in a not completely horrible way. Tech Support sets up a single "My channels" list that mixes the channels actually
-  watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide,
+  satellite (Freesat, DVB-S2) in a not completely horrible way, but this will support any DVB-T or DVB-S service setup on the box and defined as a bouquet. Tech Support sets up a single "My channels" list that mixes the channels actually watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide,
   and the guide and the channel banner number channels the same way.
 - **Local webcams and church services.** Live streams from [mcn.live](https://mvn.live), [churchservices.tv](https://www.churchservices.tv) or any camera link, listed in a simple file, with whether each is live and when the next service is.
 - **Plex.** Films and TV programmes from a Plex server at home or elsewhere sit alongside recorded TV in Watch
