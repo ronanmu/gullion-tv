@@ -608,6 +608,27 @@ assert entries2[0].name == "Harbour # 2" and entries2[0].player == 5002
 assert problems2 == ["Line 5: type should be one of mcn, churchservices, stream, playlist"], problems2
 assert webcamconfig.parse("cameras:\n  - name: x\n")[1] == ["Line 1: the file should start with 'webcams:'"]
 assert webcamconfig.load("/nonexistent/webcams.yaml") == ([], [])
+
+# A picture for any kind of webcam: a link, or a file on the box, full path or next to webcams.yaml.
+folder = tempfile.mkdtemp()
+os.makedirs(os.path.join(folder, "images"))
+open(os.path.join(folder, "images", "armagh.png"), "wb").close()
+assert webcamconfig.image_location("https://example.com/a.jpg", folder) == "https://example.com/a.jpg"
+assert webcamconfig.image_location("images/armagh.png", folder) == os.path.join(folder, "images", "armagh.png")
+assert webcamconfig.image_location("file:///media/hdd/cam.jpg", folder) == "/media/hdd/cam.jpg"
+assert webcamconfig.image_location("/media/hdd/cam.jpg", folder) == "/media/hdd/cam.jpg"
+with open(os.path.join(folder, "webcams.yaml"), "w") as handle:
+	handle.write("""webcams:
+  - name: Armagh Cathedral
+    url: https://www.churchservices.tv/armaghcathedral
+    image: images/armagh.png
+  - name: Missing
+    url: https://mcn.live/Camera/somewhere
+    image: images/nothing.png
+""")
+pictured, picture_problems = webcamconfig.load(os.path.join(folder, "webcams.yaml"))
+assert pictured[0].image == os.path.join(folder, "images", "armagh.png")
+assert pictured[1].image is None and picture_problems == [], "a missing file falls back to the page's own picture"
 print("webcam config ok")
 
 # Webcams: finding streams, pictures and status.
@@ -637,6 +658,12 @@ sample_webcams.PICTURES["https://cdn.example/live/Uploads/ProfileImages/stmalach
 path = sources.download_thumbnail(cams[0], fetch, thumbs)
 assert path and open(path, "rb").read() == b"jpeg bytes" and path.endswith(".jpg")
 assert sources.download_thumbnail(cams[4], fetch, thumbs) is None
+# A picture from webcams.yaml wins over the one on the church's or camera's page.
+for page in ("https://www.churchservices.tv/armaghcathedral", "https://mcn.live/Camera/st-malachys-parish-belfast"):
+	own = sources.Webcam(webcamconfig.Entry("Own picture", page, image=pictured[0].image))
+	sources.check(own, fetch, now=sample_webcams.NOW)
+	assert own.image == pictured[0].image, own.image
+	assert sources.download_thumbnail(own, fetch, thumbs) == pictured[0].image, "a local file is used where it is"
 print("webcam sources ok")
 
 # Webcams: the screens.

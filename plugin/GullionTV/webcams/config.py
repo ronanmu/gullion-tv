@@ -40,10 +40,22 @@ def load(path=CONFIG_PATH):
 		return [], []
 	with io.open(path, encoding="utf-8") as handle:
 		text = handle.read()
-	return parse(text)
+	return parse(text, os.path.dirname(path))
 
 
-def parse(text):
+def image_location(value, folder=None):
+	"""A webcam's image: a web link as it is, or a file on the box. A file can be a full
+	path, a file:// link, or a name next to webcams.yaml, such as images/armagh.png."""
+	if not value or value.startswith(("http://", "https://")):
+		return value
+	if value.startswith("file://"):
+		value = value[len("file://"):]
+	if not os.path.isabs(value) and folder:
+		value = os.path.join(folder, value)
+	return os.path.normpath(value)
+
+
+def parse(text, folder=None):
 	try:
 		raw, lines = _parse_yaml(text)
 	except ValueError as error:
@@ -67,7 +79,11 @@ def parse(text):
 		except (TypeError, ValueError):
 			problems.append("Line %d: player should be 4097 or 5002" % line)
 			continue
-		entries.append(Entry(name, url, kind, _text(item.get("image")) or None, _text(item.get("group")) or None, player, line))
+		image = image_location(_text(item.get("image")), folder) or None
+		if image and not image.startswith(("http://", "https://")) and not os.path.isfile(image):
+			# Not copied to this box (it isn't in the public repository, say): use the page's picture.
+			image = None
+		entries.append(Entry(name, url, kind, image, _text(item.get("group")) or None, player, line))
 	return entries, problems
 
 

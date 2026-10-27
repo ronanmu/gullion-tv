@@ -6,3 +6,7 @@ __pycache__/
 # screenshots/samples/ are kept.
 screenshots/*.png
 screenshots/*.jpg
+
+# Webcam tile pictures that aren't ours to publish. They stay on this computer and
+# scripts/deploy.sh still copies them to the box.
+config/images/armagh-cathedral.png

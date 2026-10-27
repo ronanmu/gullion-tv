@@ -20,7 +20,7 @@ fi
 echo "Copying plugin to $BOX:$DEST.new"
 # shellcheck disable=SC2086
 COPYFILE_DISABLE=1 tar $TAR_FLAGS -C "$ROOT/plugin/GullionTV" --exclude '*.pyc' --exclude '__pycache__' -cf - . \
-	| ssh "root@$BOX" "rm -rf $DEST.new && mkdir -p $DEST.new && tar -xf - -C $DEST.new"
+	| ssh "root@$BOX" "rm -rf $DEST.new && mkdir -p $DEST.new && tar -xof - -C $DEST.new"
 
 # Compile every file with the box's own Python 2.7 before swapping it in, so a
 # Python 2 mistake stops the deploy instead of breaking enigma2's next start.
@@ -50,6 +50,10 @@ FORCE="${FORCE_CONFIG:-0}"
 echo "Installing webcams.yaml (an existing one on the box is kept unless FORCE_CONFIG=1)"
 ssh "root@$BOX" "mkdir -p $CONFIG_DIR && if [ $FORCE = 1 ] || [ ! -f $CONFIG_DIR/webcams.yaml ]; then cat > $CONFIG_DIR/webcams.yaml; else cat > /dev/null; fi" \
 	< "$ROOT/config/webcams.yaml"
+if [ -d "$ROOT/config/images" ]; then
+	echo "Copying webcam pictures to $CONFIG_DIR/images"
+	COPYFILE_DISABLE=1 tar -C "$ROOT/config" $TAR_FLAGS -cf - images | ssh "root@$BOX" "tar -xof - -C $CONFIG_DIR"
+fi
 
 echo "Restarting enigma2"
 ssh "root@$BOX" "/sbin/init 4; sleep 3; /sbin/init 3"

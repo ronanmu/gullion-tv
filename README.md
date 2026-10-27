@@ -129,6 +129,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
     config.py            reads webcams.yaml (PyYAML if the box has it, otherwise a small built-in reader)
     sources.py           streams, pictures and live status for mcn.live, churchservices.tv, streams and M3U lists
 config/webcams.yaml      sample webcams list, installed on the box the first time you deploy
+config/images/           webcam tile pictures, copied to the box on every deploy
 scripts/deploy.sh        copy to the box, restart enigma2, save a screenshot
 tools/check.py           offline check against stub enigma2 modules (python3 tools/check.py)
 tools/e2stubs.py         stand-ins for the enigma2 modules, used by check.py and preview.py
@@ -168,7 +169,12 @@ sample in [config/webcams.yaml](config/webcams.yaml) explains every field. Each 
 | a direct stream (`.m3u8`, `rtsp://`, `.mp4`) | plays it as it is; add `image:` for a tile picture |
 | an `.m3u` list (`type: playlist`) | makes a tile for every camera in the list |
 
-Deploying never overwrites the box's copy; use `FORCE_CONFIG=1 BOX=... scripts/deploy.sh` to replace it.
+Any webcam can have `image:` to choose its tile picture instead of the page's: a link, a full path on the box, or
+a file in the `images` folder next to `webcams.yaml` (`image: images/armagh-cathedral.png`). Pictures in
+`config/images/` are copied there on every deploy; if a picture isn't on the box, the page's own is used. The
+Armagh Cathedral photo isn't in this repository, so a fresh copy shows the photo from churchservices.tv instead.
+
+Deploying never overwrites the box's copy of `webcams.yaml`; use `FORCE_CONFIG=1 BOX=... scripts/deploy.sh` to replace it.
 
 ## Plex
 
