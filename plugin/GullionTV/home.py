@@ -5,9 +5,11 @@ from enigma import eTimer, gRGB
 from Components.ActionMap import ActionMap
 from Components.config import config
 from Components.Label import Label
+from Components.Pixmap import Pixmap
 from Components.ProgressBar import ProgressBar
 from ServiceReference import ServiceReference
 from Screens.Screen import Screen
+from Tools.LoadPixmap import LoadPixmap
 
 from . import theme
 from .plex import client as plex
@@ -16,6 +18,8 @@ from .tv.serviceinfo import remaining
 from .ui.pin import PinChooser, TechSupportPin
 from .ui.placeholder import ComingSoon
 from .watchagain import WatchAgain
+from .ui.background import Background
+from .weather import forecast
 from .webcams.screens import WebcamList
 
 # (title, subtitle, remote colour key, colour) in on-screen order. The colours run
@@ -52,7 +56,9 @@ def _card_skin(index, colour):
 class GullionHome(Screen):
 	skin = """
 	<screen name="GullionHome" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
-		<widget name="date" position="90,62" size="900,44" font="Regular;30" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="date" position="90,62" size="700,44" font="Regular;30" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="weather_icon" position="860,60" size="48,48" alphatest="blend" />
+		<widget name="weather" position="920,62" size="490,44" font="Regular;30" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1430,44" size="400,70" font="Regular;56" halign="right" foregroundColor="%(text)s" transparent="1">
 			<convert type="ClockToText">Format:%%H:%%M</convert>
 		</widget>
@@ -79,6 +85,9 @@ class GullionHome(Screen):
 		self.setTitle("Home")
 
 		self["date"] = Label()
+		self["weather"] = Label()
+		self["weather_icon"] = Pixmap()
+		self.background = Background()
 		self["live_tag"] = Label()
 		self["now_label"] = Label()
 		self["event_name"] = Label()
@@ -115,6 +124,7 @@ class GullionHome(Screen):
 		self.onLayoutFinish.append(self.paint_selection)
 		self.onShow.append(self.start_refresh)
 		self.onHide.append(self.refresh_timer.stop)
+		self.onClose.append(self.background.stop)
 
 	# Navigation
 
@@ -197,7 +207,31 @@ class GullionHome(Screen):
 		self.refresh()
 		self.refresh_timer.start(15000, False)
 
+	def refresh_weather(self):
+		"""The weather line: shown once there's a report, fetched in the background once an hour."""
+		location = forecast.parse_location(config.plugins.gulliontv.weather_location.value)
+		if location is None:
+			self["weather"].setText("")
+			self["weather_icon"].hide()
+			return
+		latest = forecast.latest(location)
+		self["weather"].setText(latest.line if latest else "")
+		icon = self["weather_icon"]
+		picture = latest and latest.icon and LoadPixmap(latest.icon, cached=True)
+		if picture and icon.instance is not None:
+			icon.instance.setPixmap(picture)
+			icon.show()
+		else:
+			icon.hide()
+		if forecast.due(location) and not self.background.jobs:
+			def done(fresh, error):
+				if fresh is not None:
+					forecast.remember(location, fresh)
+					self.refresh_weather()
+			self.background.run(lambda: forecast.report(*location), done)
+
 	def refresh(self):
+		self.refresh_weather()
 		now = time.time()
 		local = time.localtime(now)
 		self["date"].setText("%s %d %s" % (time.strftime("%A", local), local.tm_mday, time.strftime("%B", local)))

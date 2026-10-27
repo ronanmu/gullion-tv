@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Skin converter for the channel banner, registered as
 Components.Converter.GullionServiceInfo by infobar.install().
 

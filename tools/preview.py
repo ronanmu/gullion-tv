@@ -27,6 +27,7 @@ from GullionTV.plex import client as plex, library as plexlibrary, setup as plex
 from GullionTV.tv import converter, epg, guide, infobar, picon  # noqa: E402
 from GullionTV.ui import pin, placeholder, popups  # noqa: E402
 from GullionTV.webcams import screens as webcams, sources  # noqa: E402
+from GullionTV.weather import forecast  # noqa: E402
 import sample_plex  # noqa: E402
 
 sample_epg.install()
@@ -338,6 +339,9 @@ def render(screen, base=None, state=None):
 			pixmap = getattr(instance, "pixmap", None)
 			if pixmap and pixmap.startswith("sample:"):
 				draw_picon(draw, box, pixmap.split(":", 1)[1])
+			elif pixmap and os.path.isfile(pixmap) and el.get("alphatest") == "blend":
+				icon = Image.open(pixmap).convert("RGBA").resize((w, h), Image.LANCZOS)
+				image.paste(icon, (box[0], box[1]), icon)  # drawn straight over what's behind
 			elif pixmap and os.path.isfile(pixmap):
 				paste_fitted(image, box, pixmap)
 			continue
@@ -390,6 +394,10 @@ def render(screen, base=None, state=None):
 
 
 def home_screen(selected=0):
+	# A sample report already fetched, so Home shows its weather line.
+	e2stubs.config.plugins.gulliontv.weather_location.value = "54.0830, -6.4500"
+	forecast.remember((54.083, -6.45), forecast.Report(8, "Light rain", 14, "tomorrow", "Met Éireann", fetched_at=NOW,
+		icon=forecast.symbol_icon("LightRain", daytime=False)))
 	session = e2stubs.fake_session(
 		channel="RTÉ One",
 		now=(SEVEN_PM, 3600, "Nationwide"),

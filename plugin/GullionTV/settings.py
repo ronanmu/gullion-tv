@@ -1,4 +1,4 @@
-from Components.config import config, ConfigSubsection, ConfigYesNo, ConfigPIN
+from Components.config import config, ConfigSubsection, ConfigYesNo, ConfigPIN, ConfigText
 
 config.plugins.gulliontv = ConfigSubsection()
 # When off, MENU opens the stock OpenATV menu as normal.
@@ -9,3 +9,6 @@ config.plugins.gulliontv.infobar = ConfigYesNo(default=True)
 # Settings is opened, Gullion TV asks for one to be chosen.
 config.plugins.gulliontv.pin = ConfigPIN(default=0, len=4)
 config.plugins.gulliontv.pin_set = ConfigYesNo(default=False)
+# Where the weather on Home is for: "latitude, longitude", as copied from a map.
+# Empty means no weather line.
+config.plugins.gulliontv.weather_location = ConfigText(default="", fixed_size=False)

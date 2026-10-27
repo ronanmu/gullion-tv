@@ -12,9 +12,7 @@ Gullion TV was made for an older relative, though it suits anyone who finds set-
 - **A simpler interface.** One home screen with four choices (Watch TV, TV guide, Watch again and Webcams), each on
   the matching red, green, yellow or blue button of the remote. The text is large and high-contrast, and the wording
   is plain ("18 min left", not "EPG" or "bouquet"). BACK always goes back one step.
-- **One channel list for Saorview and Freesat.** Enigma2 boxes are one of the few ways to combine both Irish terrestrial (Saorview, DVB-T2) and UK
-  satellite (Freesat, DVB-S2) in a not completely horrible way, but this will support any DVB-T or DVB-S service setup on the box and defined as a bouquet. Tech Support sets up a single "My channels" list that mixes the channels actually watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide,
-  and the guide and the channel banner number channels the same way.
+- **One channel list for Saorview and Freesat.** Residents of Ireland/Northern Ireland who wish to watch FTA TV from both the UK and Ireland      regularly have a poor experience in switching between channel listings and sourcing consistent programme guides. Enigma2 boxes, given their flexiblity are one of the better ways to combine both Irish terrestrial (Saorview, DVB-T2) and UK satellite (Freesat, DVB-S2) channels in a not entirely cumbersome way, but this plugin will support any DVB-T or DVB-S service setup on the box and defined as a bouquet. Tech Support sets up a single "My channels" list that mixes the channels actually watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide, and the guide and the channel banner number channels the same way.
 - **Local webcams and church services.** Live streams from [mcn.live](https://mvn.live), [churchservices.tv](https://www.churchservices.tv) or any camera link, listed in a simple file, with whether each is live and when the next service is.
 - **Plex.** Films and TV programmes from a Plex server at home or elsewhere sit alongside recorded TV in Watch
   again, continuing from where you left off.
@@ -44,7 +42,9 @@ Gullion TV style.
 ## What it does
 
 - MENU on the remote opens **Gullion TV** instead of the stock menu.
-- Home shows the date and clock, a live picture of the current channel with now and next, and four cards:
+- Home shows the date, a short weather report with a Yr weather icon ("8°  Light rain  ·  Tomorrow 14°") and the
+  clock, a live picture
+  of the current channel with now and next, and four cards:
   Watch TV (red), TV guide (green), Watch again (yellow) and Webcams (blue), in remote order.
   The matching colour button opens each card directly.
 - **Settings** (press down from the cards) asks for the Tech Support PIN, then opens the stock OpenATV menu.
@@ -78,8 +78,10 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   setup.py               Tech Support settings screen
   home.py                the Home screen
   watchagain.py          Watch again and the All recordings grid (recordings and Plex together)
+  weather/
+    forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours
-  images/                small icons (rec_clock.png marks recordings in the guide)
+  images/                small icons: rec_clock.png marks recordings in the guide; weather/ holds the Yr weather icons
   ui/                    shared building blocks
     tiles.py             picture tiles for Watch again, All recordings and the Plex views
     popups.py            themed choice and programme-details pop-ups
@@ -110,6 +112,7 @@ tools/check.py           offline check against stub enigma2 modules (python3 too
 tools/e2stubs.py         stand-ins for the enigma2 modules, used by check.py and preview.py
 tools/sample_*.py        made-up channels, Plex replies, recordings and webcam pages for the checks and renders
 tools/make_images.py     regenerate images/ from the theme colours (needs Pillow)
+tools/fetch_weather_icons.py  fetch and scale the Yr weather icons into images/weather/ (needs Pillow)
 tools/preview.py         render sample screenshots to screenshots/samples/ (needs Pillow)
 ```
 
@@ -159,6 +162,13 @@ Then "Quality away from home" (8 Mbps to start) and subtitles (off) can be chang
 `/etc/enigma2/gulliontv/plex.json`, readable only by root because it holds the Plex tokens. Streaming from a server
 outside the home needs Plex Pass on the server owner's account (or a Remote Watch Pass for the viewer).
 
+## Weather
+
+In Menu → Plugins → Gullion TV, enter the house's position as **Weather location (latitude, longitude)**, for
+example `54.0830, -6.4500` (in Google Maps, right-click the house to copy it). Leave it empty for no weather line.
+The forecast comes from Met Éireann, or from Open-Meteo if Met Éireann can't be reached, and is fetched once an
+hour in the background. If neither answers for six hours, the weather line simply disappears until one does.
+
 ## Recording pictures
 
 Install ffmpeg on the box once (`opkg update && opkg install ffmpeg`). Gullion TV then saves one frame from each
@@ -176,5 +186,8 @@ ffmpeg, recordings show their channel's picon.
 ## Licence
 
 Gullion TV is free software under the [GNU General Public License, version 2](LICENSE), the same licence as
-enigma2. It isn't affiliated with Plex, Freesat, Saorview, mcn.live or churchservices.tv; their names appear only
+enigma2. Weather forecasts are [Met Éireann](https://www.met.ie) open data, with
+[Open-Meteo](https://open-meteo.com) as a backup, both under CC BY 4.0. The weather icons are
+[Yr's](https://github.com/metno/weathericons), under the MIT licence, whose notice is in `images/weather/LICENSE`.
+All three are credited on the settings screen. It isn't affiliated with Plex, Freesat, Saorview, mcn.live or churchservices.tv; their names appear only
 to describe what Gullion TV works with.

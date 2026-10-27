@@ -144,6 +144,7 @@ class Screen(dict):
 		self.onLayoutFinish = []
 		self.onShow = []
 		self.onHide = []
+		self.onClose = []
 		self.closed = None
 
 	def setTitle(self, title):
@@ -239,7 +240,7 @@ def install():
 	_module("Components.ConfigList", ConfigListScreen=type("ConfigListScreen", (), {
 		"__init__": lambda self, *a, **k: None, "keySave": lambda self: self.close(), "keyCancel": lambda self: self.close()}))
 	_module("Components.config", config=config, configfile=types.SimpleNamespace(save=lambda: None),
-		ConfigSubsection=Config, ConfigYesNo=Obj, ConfigPIN=Obj,
+		ConfigSubsection=Config, ConfigYesNo=Obj, ConfigPIN=Obj, ConfigText=Obj,
 		getConfigListEntry=lambda *args: args)
 	_module("ServiceReference", ServiceReference=lambda ref: types.SimpleNamespace(
 		getServiceName=lambda: getattr(ref, "name", None) or SERVICE_NAMES.get(ref, "")))

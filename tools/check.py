@@ -20,6 +20,8 @@ from GullionTV.recordings import store as recordings, thumbnails  # noqa: E402
 from GullionTV.tv import converter, guide, infobar as banner, picon, serviceinfo  # noqa: E402
 from GullionTV.ui import background, pin, placeholder, popups, tiles  # noqa: E402
 from GullionTV.webcams import config as webcamconfig, screens as webcams, sources  # noqa: E402
+from GullionTV.weather import forecast  # noqa: E402
+import sample_weather  # noqa: E402
 import sample_plex  # noqa: E402
 import sample_webcams  # noqa: E402
 
@@ -708,3 +710,76 @@ config.plugins.gulliontv.pin.value = 2580
 settings_screen.save()
 assert results[-1] == "saved"
 print("first-use pin ok")
+
+# Weather.
+noon = time.mktime(time.localtime(sample_weather.NOW)[:3] + (12, 0, 0, 0, 0, -1)) + 86400
+evening = forecast.read_met_eireann(sample_weather.met_eireann(), sample_weather.NOW)
+assert evening.line == "11°  Light rain  ·  Tomorrow 14°" and evening.source == "Met Éireann", evening.line
+midday = forecast.read_met_eireann(sample_weather.met_eireann(noon), noon)
+assert midday.line == "12°  Light rain  ·  High 14°", midday.line
+sunny_night = forecast.read_met_eireann(sample_weather.met_eireann(symbol="Sun"), sample_weather.NOW)
+assert sunny_night.summary == "Clear", "no sunlight reaching the ground means it's dark"
+assert forecast.read_met_eireann(sample_weather.met_eireann(noon, symbol="Sun"), noon).summary == "Sunny"
+assert [forecast.symbol_words(name) for name in ("LightRainSun", "Rain", "HeavySnowThunder", "PartlyCloud", "Dark_Sun", "Fog")] == \
+	["Light rain showers", "Rain", "Thunder", "Partly cloudy", "Sunny", "Fog"]
+
+backup = forecast.report(54.083, -6.45, sample_weather.fetcher(met_up=False), sample_weather.NOW)
+assert backup.source == "Open-Meteo" and backup.line == "8°  Light rain  ·  Tomorrow 14°", backup.line
+assert forecast.report(54.083, -6.45, sample_weather.fetcher(), sample_weather.NOW).source == "Met Éireann"
+assert forecast.wmo_words(0, daytime=False) == "Clear" and forecast.wmo_words(81) == "Showers"
+
+icon = lambda path: os.path.basename(path) if path else None
+assert icon(evening.icon) == "lightrain.png" and icon(backup.icon) == "lightrain.png"
+assert icon(sunny_night.icon) == "clearsky_night.png", "a moon after dark"
+assert [icon(forecast.symbol_icon(name, day)) for name, day in (("LightRainSun", True), ("LightCloud", False), ("HeavySnowThunderSun", True),
+	("LightSnowThunderSun", True), ("Drizzle", True), ("Dark_Sun", True), ("Fog", False))] == ["lightrainshowers_day.png", "fair_night.png",
+	"heavysnowshowersandthunder_day.png", "lightssnowshowersandthunder_day.png", "lightrain.png", "clearsky_day.png", "fog.png"]
+assert forecast.symbol_icon("Something new") is None and forecast.wmo_icon(42) is None, "unknown weather: words only, no blank icon"
+for code in (0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99):
+	assert forecast.wmo_icon(code, True) and forecast.wmo_icon(code, False), "Open-Meteo code %d has no icon" % code
+assert os.path.isfile(os.path.join(forecast.ICONS, "LICENSE")), "the icons' MIT notice ships with them"
+assert forecast.parse_location("54.0830, -6.4500") == (54.083, -6.45) and forecast.parse_location("54.08 -6.45") == (54.08, -6.45)
+assert forecast.parse_location("Forkhill") is None and forecast.parse_location("120, 5") is None and forecast.parse_location("") is None
+here = (54.083, -6.45)
+assert forecast.latest(here) is None and forecast.due(here)
+forecast.remember(here, forecast.Report(7, "Cloudy", 10, "today", "Met Éireann", fetched_at=sample_weather.NOW - 2 * 3600))
+assert forecast.latest(here).line == "7°  Cloudy  ·  High 10°" and forecast.due(here), "two hours old: shown, but due a refresh"
+forecast.remember(here, forecast.Report(7, "Cloudy", 10, "today", "Met Éireann", fetched_at=sample_weather.NOW - 7 * 3600))
+assert forecast.latest(here) is None, "too old to show"
+assert forecast.latest((53.0, -7.0)) is None, "a different place"
+
+sources.fetch = sample_weather.fetcher()
+config.plugins.gulliontv.weather_location.value = ""
+screen = home.GullionHome(e2stubs.fake_session(now=(0, 3600, "Nationwide")))
+screen.layout()
+screen.refresh()
+assert screen["weather"].text == "" and not screen.background.jobs, "no location, no weather and nothing fetched"
+assert not getattr(screen["weather_icon"], "visible", True)
+config.plugins.gulliontv.weather_location.value = "54.0830, -6.4500"
+forecast.remember(None, None)
+screen.refresh()
+screen.background.wait()
+assert screen["weather"].text == "11°  Light rain  ·  Tomorrow 14°", screen["weather"].text
+assert screen["weather_icon"].visible and screen["weather_icon"].instance.pixmap.endswith("weather/lightrain.png")
+assert "Met" not in screen["weather"].text, "the credit is on the settings screen, not Home"
+
+settings_screen = setup.GullionTVSetup(e2stubs.fake_session())
+assert all(name in settings_screen["credit"].text for name in ("Met Éireann", "Open-Meteo", "Yr"))
+saved = []
+settings_screen.keySave = lambda: saved.append(True)
+config.plugins.gulliontv.weather_location.value = "Forkhill"
+settings_screen.save()
+assert settings_screen.session.opened[-1][1] == "That weather location isn't right" and not saved
+config.plugins.gulliontv.weather_location.value = "54.0830, -6.4500"
+settings_screen.save()
+assert saved == [True]
+print("weather ok")
+
+# Python 2 on the box needs a coding line in any file with non-ASCII text.
+import glob  # noqa: E402
+for path in glob.glob(os.path.join(e2stubs.PLUGIN_PARENT, "GullionTV", "**", "*.py"), recursive=True):
+	with open(path, "rb") as handle:
+		data = handle.read()
+	if any(byte > 127 for byte in bytearray(data)):
+		assert b"coding: utf-8" in data.split(b"\n", 2)[0] + data.split(b"\n", 2)[1], "%s needs a coding line" % path
+print("python 2 encoding ok")
