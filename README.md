@@ -1,8 +1,49 @@
-# Gullion TV for OpenATV 6.4
+# Gullion TV
 
-A simplified, large-text home screen for enigma2 on a Formuler F1 (OpenATV 6.4, Python 2.7, 1920x1080).
+A simpler, calmer way to use an enigma2 satellite and terrestrial box. Gullion TV puts a large-text home screen in
+front of OpenATV 6.4, so someone who just wants to watch TV never meets the box's technical menus.
 
-## What it does so far
+![The Gullion TV home screen](screenshots/samples/01-home-watch-tv.png)
+
+## Why it exists
+
+Gullion TV was made for an older relative, though it suits anyone who finds set-top box menus hard going.
+
+- **A simpler interface.** One home screen with four choices (Watch TV, TV guide, Watch again and Webcams), each on
+  the matching red, green, yellow or blue button of the remote. The text is large and high-contrast, and the wording
+  is plain ("18 min left", not "EPG" or "bouquet"). BACK always goes back one step.
+- **One channel list for Saorview and Freesat.** The box tunes both Irish terrestrial (Saorview, DVB-T2) and UK
+  satellite (Freesat, DVB-S2). Tech Support sets up a single "My channels" list that mixes the channels actually
+  watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide,
+  and the guide and the channel banner number channels the same way.
+- **Local webcams and church services.** Live streams from mcn.live, churchservices.tv or any camera link, listed in
+  a simple file, with whether each is live and when the next service is.
+- **Plex.** Films and TV programmes from a Plex server at home or elsewhere sit alongside recorded TV in Watch
+  again, continuing from where you left off.
+- **Tech Support keeps the technical side.** Tuning, channel lists, recording settings and Plex sign-in are done
+  once through the stock OpenATV menus, behind a Tech Support PIN, and stay out of the way afterwards.
+
+## Status
+
+**This is early software with limited testing on a real set-top box.** It was designed for, and so far only tried
+on, a Formuler F1 (DVB-S2 plus a DVB-T2/C tuner) on OpenATV 6.4 with a 1080p TV. The offline checks in `tools/` run
+the plugin against stand-ins for enigma2, and the screenshots in this README are renders from those stand-ins, not
+captures from a box. Expect rough edges on other boxes, images and skins.
+
+Most of the design and code were written with [Claude](https://www.anthropic.com/claude), Anthropic's AI
+assistant, working from the owner's requirements and review.
+
+Still to come: opening a film or programme from Plex and playing it, and the box's recording player in the
+Gullion TV style.
+
+## What you need
+
+- An enigma2 box on **OpenATV 6.4** (Python 2.7) with a 1080p skin.
+- **Optional:** a USB or eSATA drive for recordings; **ffmpeg** (`opkg install ffmpeg`) for recording pictures; a
+  **Plex** server with film and TV libraries. Streaming from a Plex server outside the home needs Plex Pass on the
+  server owner's account.
+
+## What it does
 
 - MENU on the remote opens **Gullion TV** instead of the stock menu.
 - Home shows the date and clock, a live picture of the current channel with now and next, and four cards:
@@ -77,11 +118,20 @@ tools/preview.py         render sample screenshots to screenshots/samples/ (need
 The sample renders use the real skin layouts and screen code with sample data. Fonts and the
 live TV picture are approximations of what the box draws.
 
-## Deploy
+## Install
+
+From a computer on the same network as the box, with SSH access to it as root:
 
 ```sh
 BOX=192.168.1.50 scripts/deploy.sh
 ```
+
+This copies `plugin/GullionTV` to `/usr/lib/enigma2/python/Plugins/Extensions/GullionTV`, installs the sample
+`webcams.yaml` the first time, restarts enigma2 and saves a screenshot from OpenWebif into `screenshots/`. Without
+the script, copy the `plugin/GullionTV` folder to that place yourself and restart enigma2.
+
+Then set up the channel lists in the stock OpenATV menus as usual: scan Saorview and Freesat, and put the channels
+that get watched into one list at the top, so it's the first list the guide shows.
 
 ## Webcams
 
@@ -122,7 +172,8 @@ ffmpeg, recordings show their channel's picon.
 - There's no default PIN. The first time Settings is opened, Gullion TV asks for a 4-digit Tech Support PIN
   (twice, and not an easy one like 0000 or 1234). Change it later in Menu → Plugins → Gullion TV.
 - To go back to the skin's own channel banner, set "Large channel banner" to No and restart.
-- To turn Gullion TV off, set "Open Gullion TV with MENU" to No in the same place.
+- To turn Gullion TV off, set "Open Gullion TV with MENU" to No in the same place. MENU then opens the stock menu,
+  without a PIN; to turn Gullion TV back on, go to Menu → Plugins → Gullion TV and set it to Yes again.
 
 ## Licence
 
