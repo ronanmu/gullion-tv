@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Screenshots grabbed from the box by scripts/deploy.sh. The renders in
+# screenshots/samples/ are kept.
+screenshots/*.png

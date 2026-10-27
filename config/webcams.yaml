@@ -1,0 +1,43 @@
+# Gullion TV webcams
+#
+# Each webcam needs a name and a url. Gullion TV works out what kind of link it
+# is, finds the live stream, picks up a picture for the tile and checks whether
+# it's live every time Webcams is opened. Edit this file, then reopen Webcams.
+#
+#   name:    what the tile says
+#   url:     the web page or stream link (see the kinds below)
+#   type:    only needed to override the guess: mcn, churchservices, stream or playlist
+#   image:   picture for the tile, a link or a file on the box (optional)
+#   group:   small label on the tile, for example Church or Local (optional)
+#   player:  4097 (the box's standard player) or 5002 if ServiceApp is installed
+#
+# Kinds of link:
+#   mcn             a camera page on mcn.live, for example https://mcn.live/Camera/st-malachys-parish-belfast
+#   churchservices  a church page on churchservices.tv; also shows the next service time
+#   stream          any direct stream: .m3u8 (HLS), rtsp://, .mp4 and so on
+#   playlist        an .m3u file listing several cameras; each becomes its own tile
+
+webcams:
+  - name: St Malachy's Parish
+    url: https://mcn.live/Camera/st-malachys-parish-belfast
+    group: Church
+
+  - name: Armagh Cathedral
+    url: https://www.churchservices.tv/armaghcathedral
+    group: Church
+
+  # A stream from anywhere else. Add a picture with image: as there's no page to take one from.
+  # - name: Harbour
+  #   url: https://example.com/harbour/live.m3u8
+  #   image: https://example.com/harbour/latest.jpg
+  #   group: Local
+
+  # A camera on the local network.
+  # - name: Front door
+  #   url: rtsp://192.168.1.40:554/stream1
+  #   group: Home
+
+  # A list of cameras in one file.
+  # - name: Town cameras
+  #   type: playlist
+  #   url: http://192.168.1.20/cameras.m3u
