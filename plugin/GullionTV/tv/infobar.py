@@ -38,7 +38,7 @@ SKIN = """
 		<convert type="GullionServiceInfo">Number</convert>
 	</widget>
 	<widget source="session.CurrentService" render="Label" position="460,782" size="1050,62" font="Regular;48" foregroundColor="%(text)s" transparent="1" zPosition="2">
-		<convert type="ServiceName">Name</convert>
+		<convert type="GullionServiceInfo">Name</convert>
 	</widget>
 	<widget source="global.CurrentTime" render="Label" position="1530,782" size="300,62" font="Regular;48" halign="right" foregroundColor="%(text)s" transparent="1" zPosition="2">
 		<convert type="ClockToText">Format:%%H:%%M</convert>

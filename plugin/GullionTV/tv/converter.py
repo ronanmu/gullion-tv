@@ -4,6 +4,8 @@ Components.Converter.GullionServiceInfo by infobar.install().
 
 	Delivery   (session.CurrentService) "Terrestrial", "Satellite · 28.2°E", ...
 	Number     (session.CurrentService) channel number as the guide shows it
+	Name       (session.CurrentService) channel name alone: OpenATV 7.x's ServiceName
+	                                    Name puts the channel number in front
 	IsHD       (session.CurrentService) boolean, for ConditionalShowHide
 	Remaining  (session.Event_Now)      "18 min left"
 """
@@ -43,6 +45,12 @@ class GullionServiceInfo(Poll, Converter, object):
 			if event is None:
 				return ""
 			return serviceinfo.remaining(event.getBeginTime() + event.getDuration() - time.time())
+		if self.type == "Name":
+			service = self.source.service
+			info = service and service.info()
+			name = info and info.getName() or ""
+			# Drop the emphasis markers some broadcasters put in names, as ServiceName does.
+			return name.replace("\xc2\x86", "").replace("\xc2\x87", "")
 		ref, height = self.service_details()
 		if self.type == "Delivery":
 			return serviceinfo.delivery(ref)

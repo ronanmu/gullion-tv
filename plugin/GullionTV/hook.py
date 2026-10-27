@@ -1,14 +1,20 @@
 """Route the remote's MENU key to the Gullion TV screen.
 
 The stock main menu stays reachable through the Tech Support PIN gate, which calls
-the original InfoBarMenu.mainMenu saved here.
+the original InfoBarMenu method saved here.
 """
 from Components.config import config
 from Screens import InfoBarGenerics
 
 from . import settings  # noqa: F401  registers config.plugins.gulliontv
 
-_original_main_menu = InfoBarGenerics.InfoBarMenu.mainMenu
+# OpenATV 6.4 calls the method mainMenu and its action mainMenu; 7.x calls them
+# showMainMenu and showMenu.
+if hasattr(InfoBarGenerics.InfoBarMenu, "mainMenu"):
+	_METHOD, _ACTION = "mainMenu", "mainMenu"
+else:
+	_METHOD, _ACTION = "showMainMenu", "showMenu"
+_original_main_menu = getattr(InfoBarGenerics.InfoBarMenu, _METHOD)
 
 
 def _gullion_main_menu(self):
@@ -19,12 +25,12 @@ def _gullion_main_menu(self):
 
 
 def install():
-	InfoBarGenerics.InfoBarMenu.mainMenu = _gullion_main_menu
+	setattr(InfoBarGenerics.InfoBarMenu, _METHOD, _gullion_main_menu)
 	# If InfoBar already exists, its ActionMap holds a bound copy of the old
 	# method, so point the action at the patched one.
 	infobar = _infobar()
 	if infobar is not None and "MenuActions" in infobar:
-		infobar["MenuActions"].actions["mainMenu"] = infobar.mainMenu
+		infobar["MenuActions"].actions[_ACTION] = getattr(infobar, _METHOD)
 
 
 def open_home(session):

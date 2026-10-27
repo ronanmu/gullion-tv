@@ -239,7 +239,7 @@ for widget in element.iter("widget"):
 	for convert in widget.iter("convert"):
 		assert convert.get("type") in known, convert.get("type")
 		if convert.get("type") == "GullionServiceInfo":
-			assert convert.text in ("Delivery", "Number", "IsHD", "Remaining"), convert.text
+			assert convert.text in ("Delivery", "Number", "Name", "IsHD", "Remaining"), convert.text
 print("infobar ok")
 
 # Webcams: the config file.
@@ -690,7 +690,7 @@ assert nothing["empty"].text == "Tech Support hasn't chosen a film library"
 print("plex library ok")
 
 # Choosing the Tech Support PIN the first time.
-assert config.plugins.gulliontv.pin.kwargs["default"] == 0, "there's no default PIN"
+assert config.plugins.gulliontv.pin.args[0] == 0, "there's no default PIN"
 assert [p for p in ("0000", "1111", "1234", "4321", "6789", "4821", "1357") if pin.weak(p)] == ["0000", "1111", "1234", "4321", "6789"]
 config.plugins.gulliontv.pin_set.value = False
 config.plugins.gulliontv.pin.value = 0

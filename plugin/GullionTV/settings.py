@@ -7,7 +7,8 @@ config.plugins.gulliontv.enabled = ConfigYesNo(default=True)
 config.plugins.gulliontv.infobar = ConfigYesNo(default=True)
 # Tech Support PIN guarding the stock menu. There's no default: the first time
 # Settings is opened, Gullion TV asks for one to be chosen.
-config.plugins.gulliontv.pin = ConfigPIN(default=0, len=4)
+# The length is passed by position: OpenATV 6.4 calls it len, 7.x pinLength.
+config.plugins.gulliontv.pin = ConfigPIN(0, 4)
 config.plugins.gulliontv.pin_set = ConfigYesNo(default=False)
 # Where the weather on Home is for: "latitude, longitude", as copied from a map.
 # Empty means no weather line.
