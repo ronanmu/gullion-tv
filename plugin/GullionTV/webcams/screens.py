@@ -11,6 +11,7 @@ from Screens.Screen import Screen
 from . import config as webcamconfig, sources
 from .. import theme
 from ..ui.popups import GullionChoice
+from ..ui import scale
 
 COLS, ROWS = 3, 2
 PER_PAGE = COLS * ROWS
@@ -59,6 +60,8 @@ class WebcamList(Screen):
 		"tiles": "".join(_tile_skin(i) for i in range(PER_PAGE)),
 	}
 
+	skin = scale.skin(skin)
+
 	def __init__(self, session, config_path=webcamconfig.CONFIG_PATH):
 		Screen.__init__(self, session)
 		self.setTitle("Webcams")
@@ -79,7 +82,7 @@ class WebcamList(Screen):
 		self.worker = None
 		self.pictures = {}
 		self.picload = ePicLoad()
-		self.picload.setPara((TILE_W, IMAGE_H, 1, 1, False, 1, theme.CARD))
+		self.picload.setPara((scale.px(TILE_W), scale.px(IMAGE_H), 1, 1, False, 1, theme.opaque(theme.CARD)))
 
 		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "MenuActions"], {
 			"left": lambda: self.move(-1),
@@ -252,6 +255,8 @@ class WebcamPlayer(Screen):
 	BANNER_SECONDS = 6
 	GIVE_UP_SECONDS = 20
 	BANNER = ("panel", "name", "source", "badge", "hint")
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, webcam):
 		Screen.__init__(self, session)

@@ -19,6 +19,7 @@ from .ui import tiles
 from .ui.background import Background
 from .ui.popups import GullionChoice
 from .webcams import sources
+from .ui import scale
 
 PER_ROW = 5
 TILE_W, IMAGE_H, BAND_H = 328, 184, 72
@@ -106,6 +107,8 @@ class WatchAgain(Screen):
 			% (i, LEFT + i * (BUTTON_W + 30), BROWSE_Y + 46, BUTTON_W, BUTTON_H, theme.TEXT, theme.CARD)
 			for i in range(MAX_BUTTONS)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, plex_settings=None):
 		Screen.__init__(self, session)
@@ -346,6 +349,8 @@ class AllRecordings(Screen):
 		"tiles": "".join(tiles.skin("tile%d" % i, LEFT + (i % 5) * (TILE_W + GAP), 160 + (i // 5) * (IMAGE_H + BAND_H + 30), TILE_W, IMAGE_H, BAND_H)
 			for i in range(15)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session):
 		Screen.__init__(self, session)

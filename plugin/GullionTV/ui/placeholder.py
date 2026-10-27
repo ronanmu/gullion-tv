@@ -4,6 +4,7 @@ from Components.Label import Label
 from Screens.Screen import Screen
 
 from .. import theme
+from . import scale
 
 
 class ComingSoon(Screen):
@@ -16,6 +17,8 @@ class ComingSoon(Screen):
 		<eLabel text="This part isn't ready yet." position="90,220" size="1740,50" font="Regular;36" foregroundColor="%(muted)s" transparent="1" />
 		<eLabel text="BACK to return home" position="90,1010" size="1000,40" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % {"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, title):
 		Screen.__init__(self, session)

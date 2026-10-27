@@ -11,9 +11,39 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST=/usr/lib/enigma2/python/Plugins/Extensions/GullionTV
 SHOT="$ROOT/screenshots/$(date +%Y%m%d-%H%M%S).png"
 
-echo "Copying plugin to $BOX:$DEST"
-COPYFILE_DISABLE=1 tar -C "$ROOT/plugin/GullionTV" --exclude '*.pyc' --exclude '__pycache__' -cf - . \
-	| ssh "root@$BOX" "rm -rf $DEST && mkdir -p $DEST && tar -xf - -C $DEST"
+# macOS tar adds its own file attributes, which the box's tar doesn't understand.
+TAR_FLAGS=""
+if tar --version 2>/dev/null | grep -q bsdtar; then
+	TAR_FLAGS="--no-xattrs --no-mac-metadata"
+fi
+
+echo "Copying plugin to $BOX:$DEST.new"
+# shellcheck disable=SC2086
+COPYFILE_DISABLE=1 tar $TAR_FLAGS -C "$ROOT/plugin/GullionTV" --exclude '*.pyc' --exclude '__pycache__' -cf - . \
+	| ssh "root@$BOX" "rm -rf $DEST.new && mkdir -p $DEST.new && tar -xf - -C $DEST.new"
+
+# Compile every file with the box's own Python 2.7 before swapping it in, so a
+# Python 2 mistake stops the deploy instead of breaking enigma2's next start.
+echo "Checking it compiles on the box"
+ssh "root@$BOX" "sh -s" <<SCRIPT
+set -e
+cd $DEST.new
+python -c "
+import os, py_compile, sys
+failed = 0
+for root, dirs, files in os.walk('.'):
+    for name in files:
+        if name.endswith('.py'):
+            try:
+                py_compile.compile(os.path.join(root, name), doraise=True)
+            except Exception as error:
+                failed += 1
+                print(error)
+sys.exit(1 if failed else 0)
+"
+rm -rf $DEST
+mv $DEST.new $DEST
+SCRIPT
 
 CONFIG_DIR=/etc/enigma2/gulliontv
 FORCE="${FORCE_CONFIG:-0}"
@@ -22,7 +52,7 @@ ssh "root@$BOX" "mkdir -p $CONFIG_DIR && if [ $FORCE = 1 ] || [ ! -f $CONFIG_DIR
 	< "$ROOT/config/webcams.yaml"
 
 echo "Restarting enigma2"
-ssh "root@$BOX" "init 4; sleep 3; init 3"
+ssh "root@$BOX" "/sbin/init 4; sleep 3; /sbin/init 3"
 
 echo "Waiting for the box to come back"
 for _ in $(seq 1 30); do

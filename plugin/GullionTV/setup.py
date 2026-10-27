@@ -9,6 +9,7 @@ from . import settings  # noqa: F401  registers config.plugins.gulliontv
 from .ui.pin import weak
 from .ui.popups import GullionChoice
 from .weather import forecast
+from .ui import scale
 
 
 class GullionTVSetup(Screen, ConfigListScreen):
@@ -26,6 +27,8 @@ class GullionTVSetup(Screen, ConfigListScreen):
 		<ePixmap pixmap="skin_default/buttons/blue.png" position="1030,490" size="140,40" alphatest="on" />
 		<widget source="key_blue" render="Label" position="1030,490" size="140,40" zPosition="1" font="Regular;22" halign="center" valign="center" transparent="1" />
 	</screen>"""
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session):
 		Screen.__init__(self, session)

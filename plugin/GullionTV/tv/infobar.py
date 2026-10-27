@@ -14,6 +14,7 @@ except ImportError:
 	import xml.etree.ElementTree as ET
 
 from .. import theme
+from ..ui import scale
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL_Y = 760
@@ -100,10 +101,14 @@ def install():
 	"""Swap in the banner layout. Must run before InfoBar is created (session start)."""
 	import skin
 	register_converter()
-	element = ET.fromstring(SKIN)
-	existing = skin.dom_screens.get("InfoBar")
-	# OpenATV keeps (element, skin directory); older images keep the bare element.
+	element = ET.fromstring(scale.skin(SKIN))
+	# The table of loaded skin screens: domScreens on OpenATV 6.4, dom_screens on newer images.
+	screens = getattr(skin, "domScreens", None)
+	if screens is None:
+		screens = skin.dom_screens
+	existing = screens.get("InfoBar")
+	# Entries are (element, skin directory); some older images keep the bare element.
 	if existing is None or isinstance(existing, tuple):
-		skin.dom_screens["InfoBar"] = (element, PLUGIN_DIR)
+		screens["InfoBar"] = (element, PLUGIN_DIR)
 	else:
-		skin.dom_screens["InfoBar"] = element
+		screens["InfoBar"] = element

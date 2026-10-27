@@ -6,6 +6,7 @@ from Screens.Screen import Screen
 
 from .. import settings  # noqa: F401  registers config.plugins.gulliontv
 from .. import theme
+from . import scale
 
 PIN_LENGTH = 4
 MAX_TRIES = 3
@@ -19,20 +20,22 @@ class PinEntry(Screen):
 	"""
 
 	skin = """
-	<screen name="GullionPinEntry" position="center,center" size="900,500" flags="wfNoBorder" backgroundColor="%(border)s">
-		<eLabel position="3,3" size="894,494" backgroundColor="%(card)s" />
+	<screen name="GullionPinEntry" position="center,center" size="900,500" flags="wfNoBorder" backgroundColor="%(card)s">
+		%(frame_900_500)s
 		<widget name="heading" position="60,50" size="780,56" font="Regular;40" foregroundColor="%(text)s" transparent="1" />
 		<widget name="detail" position="60,116" size="780,72" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		%(boxes)s
 		<widget name="message" position="60,370" size="780,40" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		<eLabel text="BACK to cancel" position="60,430" size="780,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % {
-		"card": theme.POPUP, "border": theme.POPUP_BORDER, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
+		"card": theme.POPUP, "border": theme.POPUP_BORDER, "frame_900_500": theme.frame(900, 500), "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 		"boxes": "".join(
 			'<widget name="digit%d" position="%d,226" size="100,110" font="Regular;110" halign="center" valign="center" '
 			'foregroundColor="%s" backgroundColor="%s" />' % (i, 60 + i * 130, theme.TEXT, theme.BACKGROUND)
 			for i in range(PIN_LENGTH)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, heading, detail="Enter the 4-digit PIN with the number buttons", check=None):
 		Screen.__init__(self, session)

@@ -17,6 +17,7 @@ from . import epg, picon
 from .. import theme
 from ..recordings import store as recordings
 from ..ui.popups import EventDetails, GullionChoice
+from ..ui import scale, tiles
 
 ROWS = 6
 ROW_H = 75
@@ -34,8 +35,15 @@ PX_PER_SECOND = CELLS_W / float(WINDOW)
 RULER_Y = 512
 NOW_Y = 542  # the now marker sits under the ruler times, clear of programme titles
 DAY_X, DAY_W = 640, 150
-REC_ICON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images", "rec_clock.png")
+IMAGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images")
 ICON = 26
+REC_ICON_SIZES = (10, 13, 17, 26, 52)  # made by tools/make_images.py, one per common skin size
+
+
+def rec_icon_path():
+	"""The red clock drawn at the size nearest the skin's: list cells can't scale a picture."""
+	size = min(REC_ICON_SIZES, key=lambda candidate: abs(candidate - scale.px(ICON)))
+	return os.path.join(IMAGES, "rec_clock_%d.png" % size)
 
 _FLAGS = RT_HALIGN_LEFT | RT_VALIGN_CENTER
 
@@ -97,6 +105,8 @@ class Guide(Screen):
 
 	last_list = 0
 
+	skin = scale.skin(skin)
+
 	def __init__(self, session):
 		Screen.__init__(self, session)
 		self.setTitle("TV guide")
@@ -104,15 +114,16 @@ class Guide(Screen):
 		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note"):
 			self[name] = Label()
 		self["picon"] = Pixmap()
-		self.rec_icon = LoadPixmap(REC_ICON, cached=True)
+		self.rec_icon = LoadPixmap(rec_icon_path(), cached=True)
+		self.picons = tiles.Pictures(220, 132)
 		for i in range(DAYS):
 			self["day%d" % i] = Label()
 		for i in range(WINDOW // STEP):
 			self["time%d" % i] = Label()
 		self["grid"] = MenuList([], enableWrapAround=False, content=eListboxPythonMultiContent)
-		self["grid"].l.setItemHeight(ROW_H)
-		self["grid"].l.setFont(0, gFont("Regular", 30))
-		self["grid"].l.setFont(1, gFont("Regular", 26))
+		self["grid"].l.setItemHeight(scale.px(ROW_H))
+		self["grid"].l.setFont(0, gFont("Regular", scale.px(30)))
+		self["grid"].l.setFont(1, gFont("Regular", scale.px(26)))
 		self["grid"].l.setSelectionClip(eRect(0, 0, 0, 0), False)
 
 		# Checked each time the guide opens: is there a drive to record to?
@@ -399,7 +410,7 @@ class Guide(Screen):
 		line = self["now_line"]
 		if self.window_start <= self.now < self.window_end:
 			if line.instance is not None:
-				line.instance.move(ePoint(GRID_X + CELLS_X + int((self.now - self.window_start) * PX_PER_SECOND), NOW_Y))
+				line.instance.move(ePoint(scale.px(GRID_X + CELLS_X + int((self.now - self.window_start) * PX_PER_SECOND)), scale.px(NOW_Y)))
 			line.show()
 		else:
 			line.hide()
@@ -434,7 +445,8 @@ class Guide(Screen):
 			if epg.find_timer(self.session, channel.ref, event):
 				top = (CELL_H - ICON) // 2
 				if self.rec_icon:
-					entries.append(MultiContentEntryPixmapAlphaBlend(pos=(left + inset, top), size=(ICON, ICON), png=self.rec_icon))
+					entries.append(MultiContentEntryPixmapAlphaBlend(pos=(scale.px(left + inset), scale.px(top)),
+						size=(scale.px(ICON), scale.px(ICON)), png=self.rec_icon))
 				else:
 					entries.append(_text(left + inset, top, ICON, ICON, "", 0, fg, theme.KEY_RED))
 				inset += ICON + 12
@@ -470,7 +482,7 @@ class Guide(Screen):
 	def draw_picon(self, channel):
 		"""The channel's logo, or its name on a card when there's no picon for it."""
 		path = channel and picon.picon_path(channel.ref)
-		pixmap = path and LoadPixmap(path, cached=True)
+		pixmap = path and self.picons.get(path)
 		if pixmap and self["picon"].instance is not None:
 			self["picon"].instance.setPixmap(pixmap)
 			self["picon"].show()
@@ -492,7 +504,8 @@ class Guide(Screen):
 
 
 def _text(x, y, w, h, text, font, fg, bg, flags=_FLAGS):
-	return MultiContentEntryText(pos=(x, y), size=(w, h), font=font, flags=flags, text=text,
+	"""A grid cell, laid out at the design size and scaled to the skin."""
+	return MultiContentEntryText(pos=(scale.px(x), scale.px(y)), size=(scale.px(w), scale.px(h)), font=font, flags=flags, text=text,
 		color=theme.rgb(fg), color_sel=theme.rgb(fg), backcolor=theme.rgb(bg), backcolor_sel=theme.rgb(bg))
 
 

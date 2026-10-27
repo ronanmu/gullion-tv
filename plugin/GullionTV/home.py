@@ -9,7 +9,6 @@ from Components.Pixmap import Pixmap
 from Components.ProgressBar import ProgressBar
 from ServiceReference import ServiceReference
 from Screens.Screen import Screen
-from Tools.LoadPixmap import LoadPixmap
 
 from . import theme
 from .plex import client as plex
@@ -21,6 +20,7 @@ from .watchagain import WatchAgain
 from .ui.background import Background
 from .weather import forecast
 from .webcams.screens import WebcamList
+from .ui import scale, tiles
 
 # (title, subtitle, remote colour key, colour) in on-screen order. The colours run
 # left to right in the order they sit on the remote.
@@ -80,6 +80,8 @@ class GullionHome(Screen):
 		"cards": "".join(_card_skin(i, card[3]) for i, card in enumerate(CARDS)),
 	}
 
+	skin = scale.skin(skin)
+
 	def __init__(self, session):
 		Screen.__init__(self, session)
 		self.setTitle("Home")
@@ -87,6 +89,7 @@ class GullionHome(Screen):
 		self["date"] = Label()
 		self["weather"] = Label()
 		self["weather_icon"] = Pixmap()
+		self.weather_icons = tiles.Pictures(48, 48, background=theme.BACKGROUND)
 		self.background = Background()
 		self["live_tag"] = Label()
 		self["now_label"] = Label()
@@ -217,7 +220,7 @@ class GullionHome(Screen):
 		latest = forecast.latest(location)
 		self["weather"].setText(latest.line if latest else "")
 		icon = self["weather_icon"]
-		picture = latest and latest.icon and LoadPixmap(latest.icon, cached=True)
+		picture = latest and latest.icon and self.weather_icons.get(latest.icon)
 		if picture and icon.instance is not None:
 			icon.instance.setPixmap(picture)
 			icon.show()

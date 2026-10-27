@@ -16,6 +16,7 @@ from ..ui import tiles
 from ..ui.background import Background
 from ..ui.pin import PinEntry
 from ..ui.popups import GullionChoice
+from ..ui import scale
 
 MAX_ROWS = 7
 QUALITY_STEPS = (2000, 4000, 8000, 12000, 20000, 0)  # kbps; 0 means original quality
@@ -33,14 +34,14 @@ class OptionList(Screen):
 	closes with the set."""
 
 	skin = """
-	<screen name="GullionOptionList" position="center,center" size="1100,820" flags="wfNoBorder" backgroundColor="%(border)s">
-		<eLabel position="3,3" size="1094,814" backgroundColor="%(card)s" />
+	<screen name="GullionOptionList" position="center,center" size="1100,820" flags="wfNoBorder" backgroundColor="%(card)s">
+		%(frame_1100_820)s
 		<widget name="heading" position="60,46" size="980,56" font="Regular;40" foregroundColor="%(text)s" transparent="1" />
 		<widget name="detail" position="60,108" size="980,80" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		%(rows)s
 		<widget name="hint" position="60,760" size="980,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % {
-		"card": theme.POPUP, "border": theme.POPUP_BORDER, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
+		"card": theme.POPUP, "border": theme.POPUP_BORDER, "frame_1100_820": theme.frame(1100, 820), "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 		"rows": "".join(
 			'<widget name="row%d_bg" position="60,%d" size="980,64" backgroundColor="%s" zPosition="1" />'
 			'<widget name="row%d" position="88,%d" size="760,64" font="Regular;32" valign="center" foregroundColor="%s" transparent="1" zPosition="2" />'
@@ -48,6 +49,8 @@ class OptionList(Screen):
 			% (i, 206 + i * 76, theme.POPUP, i, 206 + i * 76, theme.TEXT, i, 206 + i * 76, theme.TEXT_MUTED)
 			for i in range(MAX_ROWS)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, heading, options, detail="", toggles=None):
 		"""options: [(label, key)] or [(label, key, value text)]"""
@@ -111,8 +114,8 @@ class PlexLink(Screen):
 	"""Shows a code to enter at plex.tv/link and waits for it. Closes with the account token."""
 
 	skin = """
-	<screen name="GullionPlexLink" position="center,center" size="1100,620" flags="wfNoBorder" backgroundColor="%(border)s">
-		<eLabel position="3,3" size="1094,614" backgroundColor="%(card)s" />
+	<screen name="GullionPlexLink" position="center,center" size="1100,620" flags="wfNoBorder" backgroundColor="%(card)s">
+		%(frame_1100_620)s
 		<eLabel text="Link a Plex account" position="60,46" size="980,56" font="Regular;40" foregroundColor="%(text)s" transparent="1" />
 		<eLabel text="On a phone or computer, go to" position="60,124" size="980,40" font="Regular;30" foregroundColor="%(muted)s" transparent="1" />
 		<widget name="address" position="60,170" size="980,60" font="Regular;46" foregroundColor="%(accent)s" transparent="1" />
@@ -121,11 +124,13 @@ class PlexLink(Screen):
 		<widget name="message" position="60,476" size="980,80" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		<eLabel text="BACK to cancel" position="60,566" size="980,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % {
-		"card": theme.POPUP, "border": theme.POPUP_BORDER, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
+		"card": theme.POPUP, "border": theme.POPUP_BORDER, "frame_1100_620": theme.frame(1100, 620), "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 		"accent": theme.ACCENT, "light": theme.CARD_SELECTED, "on_light": theme.TEXT_ON_SELECTED,
 	}
 
 	POLL_SECONDS = 3
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, client):
 		Screen.__init__(self, session)
@@ -207,6 +212,8 @@ class PlexSetup(Screen):
 			% (i, 420 + i * 76, theme.CARD, i, 420 + i * 76, theme.TEXT, i, 420 + i * 76, theme.TEXT_MUTED)
 			for i in range(MAX_ROWS)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, settings_path=plex.SETTINGS_PATH, request=None):
 		Screen.__init__(self, session)

@@ -16,6 +16,9 @@ GB = 1024 ** 3
 MIN_FREE = 2 * GB   # below this a recording would soon fill the drive
 LOW_FREE = 10 * GB  # below this, warn
 READY, LOW, FULL, MISSING = "ready", "low", "full", "missing"
+# Not a recording drive: memory (OpenATV mounts a tiny tmpfs at /media to hold the
+# empty hdd/usb folders a drive is mounted on) or the box's own flash.
+NOT_A_DRIVE = ("tmpfs", "ramfs", "rootfs", "devtmpfs", "ubifs", "jffs2", "squashfs", "overlay", "autofs")
 TICKS = 90000
 LAST_POSITION = 3
 COMPANIONS = (".meta", ".ap", ".sc", ".cuts", ".sc.cuts")
@@ -82,11 +85,12 @@ def storage(folder=None):
 	"""(state, free bytes) for the recording folder.
 
 	MISSING: no folder, not on a plugged-in drive (the box's own flash is far too
-	small), or it can't be written to. FULL: under MIN_FREE left. LOW: under
+	small, and an empty folder in memory is waiting for one), or it can't be written to. FULL: under MIN_FREE left. LOW: under
 	LOW_FREE. READY: fine.
 	"""
 	folder = folder or default_folder()
-	if not os.path.isdir(folder) or mount_point(folder) == "/" or not os.access(folder, os.W_OK):
+	mount = mount_point(folder) if os.path.isdir(folder) else None
+	if mount is None or mount == "/" or mount_type(mount) in NOT_A_DRIVE or not os.access(folder, os.W_OK):
 		return MISSING, 0
 	free = free_space(folder)
 	if free < MIN_FREE:
@@ -105,6 +109,21 @@ def mount_point(path):
 	while not os.path.ismount(path):
 		path = os.path.dirname(path)
 	return path
+
+
+def mount_type(mount):
+	"""The kind of filesystem mounted at mount ("ext4", "vfat", "tmpfs"...), from /proc/mounts.
+	When something is mounted over something else, the last line is the one in use."""
+	kind = ""
+	try:
+		with open("/proc/mounts") as handle:
+			for line in handle:
+				fields = line.split()
+				if len(fields) > 2 and fields[1] == mount:
+					kind = fields[2]
+	except (IOError, OSError):
+		pass
+	return kind
 
 
 def free_space(path):

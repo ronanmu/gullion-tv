@@ -34,7 +34,8 @@ Gullion TV style.
 
 ## What you need
 
-- An enigma2 box on **OpenATV 6.4** (Python 2.7) with a 1080p skin.
+- An enigma2 box on **OpenATV 6.4** (Python 2.7). Gullion TV is designed at 1920×1080 and scales to the skin's
+  own size, so it works with HD skins such as MetrixHD (1280×720) as well as full-HD and 4K ones.
 - **Optional:** a USB or eSATA drive for recordings; **ffmpeg** (`opkg install ffmpeg`) for recording pictures; a
   **Plex** server with film and TV libraries. Streaming from a Plex server outside the home needs Plex Pass on the
   server owner's account.

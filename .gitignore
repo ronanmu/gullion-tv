@@ -5,3 +5,4 @@ __pycache__/
 # Screenshots grabbed from the box by scripts/deploy.sh. The renders in
 # screenshots/samples/ are kept.
 screenshots/*.png
+screenshots/*.jpg

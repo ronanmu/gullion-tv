@@ -21,6 +21,7 @@ from GullionTV.tv import converter, guide, infobar as banner, picon, serviceinfo
 from GullionTV.ui import background, pin, placeholder, popups, tiles  # noqa: E402
 from GullionTV.webcams import config as webcamconfig, screens as webcams, sources  # noqa: E402
 from GullionTV.weather import forecast  # noqa: E402
+from GullionTV.ui import scale  # noqa: E402
 import sample_weather  # noqa: E402
 import sample_plex  # noqa: E402
 import sample_webcams  # noqa: E402
@@ -37,6 +38,7 @@ from GullionTV.recordings import store as drive  # noqa: E402
 drive.DEFAULT_FOLDER = tempfile.mkdtemp()
 drive.mount_point = lambda path: "/media/hdd"
 drive.free_space = lambda path: 500 * drive.GB
+drive.mount_type = lambda mount: "ext4"
 
 config = e2stubs.config
 
@@ -126,7 +128,7 @@ assert len(g["grid"].list) == guide.ROWS
 g.next_event()
 assert g.selected_event().title == "Fair City" and g["ev_rec"].text == "Will record"
 icons = [entry for entry in g["grid"].list[0][1:] if "png" in entry]
-assert len(icons) == 1 and icons[0]["png"] == guide.REC_ICON and os.path.isfile(guide.REC_ICON), "Fair City gets the red clock"
+assert len(icons) == 1 and icons[0]["png"] == guide.rec_icon_path() and guide.rec_icon_path().endswith("rec_clock_26.png") and os.path.isfile(guide.rec_icon_path()), "Fair City gets the red clock"
 g.next_event()
 assert g.selected_event().title == "Prime Time"
 g.next_event()
@@ -167,7 +169,9 @@ guide.Guide.last_list = 0
 
 # Picon in the guide: the logo when there is one, otherwise a name card.
 picon._found.clear()
-picon._system_lookup = lambda channel: "/usr/share/enigma2/picon/%s.png" % channel.replace(":", "_").strip("_") if "EEEE" in channel else None
+picon_dir = tempfile.mkdtemp()
+open(os.path.join(picon_dir, "1_0_19_1_1_1_EEEE0000_0_0_0.png"), "wb").close()
+picon._system_lookup = lambda channel: os.path.join(picon_dir, "%s.png" % channel.replace(":", "_").strip("_")) if "EEEE" in channel else None
 g = guide.Guide(session)
 g.layout()
 assert g["picon"].instance.pixmap.endswith("1_0_19_1_1_1_EEEE0000_0_0_0.png") and g["picon"].visible
@@ -216,9 +220,14 @@ assert c.notified and not converter._numbers, "a channel change re-reads channel
 print("converter ok")
 
 import skin  # noqa: E402  the stub
+skin.domScreens = {"InfoBar": ("stock InfoBar element", "/usr/share/enigma2/skin")}  # OpenATV 6.4's name
 config.plugins.gulliontv.infobar.value = True
 plugin.sessionstart(0, session=object())
-element, path = skin.dom_screens["InfoBar"]
+element, path = skin.domScreens["InfoBar"]
+assert skin.dom_screens["InfoBar"][0] == "stock InfoBar element", "OpenATV 6.4's table is used when it's there"
+del skin.domScreens
+banner.install()
+assert skin.dom_screens["InfoBar"][0].get("name") == "InfoBar", "newer images' table otherwise"
 assert element.get("name") == "InfoBar" and path.endswith("GullionTV")
 assert sys.modules["Components.Converter.GullionServiceInfo"] is converter
 known = {"ServiceName", "FrontendInfo", "GullionServiceInfo", "ClockToText", "ConditionalShowHide", "EventTime", "EventName"}
@@ -522,6 +531,11 @@ for free, state in ((500, recordings.READY), (5, recordings.LOW), (1, recordings
 	assert recordings.storage(folder)[0] == state, (free, state)
 recordings.mount_point = lambda path: "/"
 assert recordings.storage(folder)[0] == recordings.MISSING, "the box's own flash doesn't count"
+recordings.mount_point = lambda path: "/media"
+recordings.mount_type = lambda mount: "tmpfs"
+assert recordings.storage(folder)[0] == recordings.MISSING, "an empty folder in memory, waiting for a drive, doesn't count"
+recordings.mount_type = lambda mount: "ext4"
+recordings.mount_point = lambda path: "/"
 assert recordings.can_record(recordings.LOW) and not recordings.can_record(recordings.FULL)
 
 session = e2stubs.fake_session()
@@ -783,3 +797,31 @@ for path in glob.glob(os.path.join(e2stubs.PLUGIN_PARENT, "GullionTV", "**", "*.
 	if any(byte > 127 for byte in bytearray(data)):
 		assert b"coding: utf-8" in data.split(b"\n", 2)[0] + data.split(b"\n", 2)[1], "%s needs a coding line" % path
 print("python 2 encoding ok")
+
+# Fitting other skin sizes: every screen designed at 1920x1080 must fit the
+# skin's own size once scaled (MetrixHD and the default skin are 1280x720).
+screens = [home.GullionHome, guide.Guide, watchagain.WatchAgain, watchagain.AllRecordings, webcams.WebcamList,
+	webcams.WebcamPlayer, plexlibrary.PlexLibrary, plexsetup.PlexSetup, plexsetup.OptionList, plexsetup.PlexLink,
+	popups.GullionChoice, popups.EventDetails, pin.PinEntry, placeholder.ComingSoon, setup.GullionTVSetup]
+assert scale.factor() == 1.0 and scale.skin(home.GullionHome.skin) == home.GullionHome.skin, "full HD is drawn exactly as designed"
+for width, height in ((1280, 720), (720, 576), (3840, 2160)):
+	scale.set_factor(width / 1920.0)
+	for cls in screens + [types.SimpleNamespace(skin=banner.SKIN, __name__="InfoBar")]:
+		root = ET.fromstring(scale.skin(cls.skin))
+		w, h = [int(v) for v in root.get("size").split(",")]
+		assert w <= width and h <= height, "%s is %dx%d on a %dx%d skin" % (cls.__name__, w, h, width, height)
+		for element in root:
+			if element.get("position") and element.get("size") and "center" not in element.get("position"):
+				x, y = [int(v) for v in element.get("position").split(",")]
+				ew, eh = [int(v) for v in element.get("size").split(",")]
+				assert x + ew <= w + 1 and y + eh <= h + 1, "%s: %s runs off a %dx%d skin" % (cls.__name__, element.attrib, width, height)
+scale.set_factor(1280 / 1920.0)
+scaled = scale.skin('<screen position="center,center" size="900,460"><widget name="a" position="90,62" size="1740,1" font="Regular;30" itemHeight="75" /></screen>')
+assert scaled == '<screen position="center,center" size="600,307"><widget name="a" position="60,41" size="1160,1" font="Regular;20" itemHeight="50" /></screen>', scaled
+cell = guide._text(390, 0, 1350, 72, "Nationwide", 0, guide.theme.TEXT, guide.theme.CARD)
+assert cell["pos"] == (260, 0) and cell["size"] == (900, 48), "guide cells shrink with the skin"
+assert guide.rec_icon_path().endswith("rec_clock_17.png") and os.path.isfile(guide.rec_icon_path())
+scale.set_factor(720 / 1920.0)
+assert guide.rec_icon_path().endswith("rec_clock_10.png")
+scale.set_factor(1.0)
+print("skin sizes ok")

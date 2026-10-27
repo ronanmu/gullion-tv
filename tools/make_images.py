@@ -38,4 +38,6 @@ def clock(path, size, face, hands):
 if __name__ == "__main__":
 	if not os.path.isdir(OUT):
 		os.makedirs(OUT)
-	clock(os.path.join(OUT, "rec_clock.png"), 26, theme.KEY_RED, theme.TEXT)
+	# One size per common skin: 26 px at 1920 wide, 17 at 1280, 13 and 10 for smaller skins, 52 for 4K.
+	for size in (10, 13, 17, 26, 52):
+		clock(os.path.join(OUT, "rec_clock_%d.png" % size), size, theme.KEY_RED, theme.TEXT)

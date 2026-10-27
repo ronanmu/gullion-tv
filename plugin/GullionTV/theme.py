@@ -31,3 +31,21 @@ KEY_BLUE = "#00378add"
 def rgb(colour):
 	"""Skin colour string to the int gRGB() expects."""
 	return int(colour[1:], 16)
+
+
+def opaque(colour):
+	"""A skin colour for ePicLoad, which counts alpha the other way round: FF is solid."""
+	return "#ff" + colour[3:]
+
+
+def frame(width, height, colour=POPUP_BORDER, thickness=3):
+	"""A pop-up's border as four thin edges, at the design size.
+
+	The card colour is the pop-up's own background, not a box under its text:
+	enigma2 6.4 draws plain boxes (eLabel) after a screen's widgets, so a card box
+	would cover the heading, the options and the PIN digits.
+	"""
+	edges = ((0, 0, width, thickness), (0, height - thickness, width, thickness),
+		(0, 0, thickness, height), (width - thickness, 0, thickness, height))
+	return "".join('<eLabel position="%d,%d" size="%d,%d" backgroundColor="%s" />' % (x, y, w, h, colour)
+		for x, y, w, h in edges)

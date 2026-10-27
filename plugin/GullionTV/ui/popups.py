@@ -6,17 +6,18 @@ from Components.Label import Label
 from Screens.Screen import Screen
 
 from .. import theme
+from . import scale
 
 MAX_OPTIONS = 3
-_POPUP = {"card": theme.POPUP, "border": theme.POPUP_BORDER, "text": theme.TEXT, "muted": theme.TEXT_MUTED}
+_POPUP = {"card": theme.POPUP, "border": theme.POPUP_BORDER, "frame_900_520": theme.frame(900, 520), "frame_1300_700": theme.frame(1300, 700), "text": theme.TEXT, "muted": theme.TEXT_MUTED}
 
 
 class GullionChoice(Screen):
 	"""Up to three options. Closes with the chosen option's key, or None on BACK."""
 
 	skin = """
-	<screen name="GullionChoice" position="center,center" size="900,520" flags="wfNoBorder" backgroundColor="%(border)s">
-		<eLabel position="3,3" size="894,514" backgroundColor="%(card)s" />
+	<screen name="GullionChoice" position="center,center" size="900,520" flags="wfNoBorder" backgroundColor="%(card)s">
+		%(frame_900_520)s
 		<widget name="heading" position="60,50" size="780,56" font="Regular;40" foregroundColor="%(text)s" transparent="1" />
 		<widget name="detail" position="60,112" size="780,80" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		%(options)s
@@ -26,6 +27,8 @@ class GullionChoice(Screen):
 		'<widget name="option%d" position="88,%d" size="740,64" font="Regular;32" valign="center" '
 		'foregroundColor="%s" transparent="1" zPosition="2" />' % (i, 210 + i * 78, theme.POPUP, i, 210 + i * 78, theme.TEXT)
 		for i in range(MAX_OPTIONS)))
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, heading, options, detail=""):
 		"""options: [(label, key)]"""
@@ -67,13 +70,15 @@ class EventDetails(Screen):
 	"""Full programme description, opened with INFO in the guide."""
 
 	skin = """
-	<screen name="GullionEventDetails" position="center,center" size="1300,700" flags="wfNoBorder" backgroundColor="%(border)s">
-		<eLabel position="3,3" size="1294,694" backgroundColor="%(card)s" />
+	<screen name="GullionEventDetails" position="center,center" size="1300,700" flags="wfNoBorder" backgroundColor="%(card)s">
+		%(frame_1300_700)s
 		<widget name="heading" position="60,50" size="1180,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
 		<widget name="when" position="60,120" size="1180,44" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
 		<widget name="description" position="60,190" size="1180,420" font="Regular;30" foregroundColor="%(text)s" transparent="1" />
 		<eLabel text="BACK to close" position="60,636" size="1180,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % dict(_POPUP, accent=theme.ACCENT)
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, heading, when, description):
 		Screen.__init__(self, session)

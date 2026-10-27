@@ -16,6 +16,7 @@ from ..ui import tiles
 from ..ui.background import Background
 from ..ui.popups import GullionChoice
 from ..webcams import sources
+from ..ui import scale
 
 COLS, ROWS = 8, 2
 PER_PAGE = COLS * ROWS
@@ -71,6 +72,8 @@ class PlexLibrary(Screen):
 		"tiles": "".join(tiles.skin("tile%d" % i, LEFT + (i % COLS) * (POSTER_W + GAP_X), TOP + (i // COLS) * (POSTER_H + BAND_H + GAP_Y),
 			POSTER_W, POSTER_H, BAND_H, badge_width=140, name_font=24, name_lines=2, sub_font=20) for i in range(PER_PAGE)),
 	}
+
+	skin = scale.skin(skin)
 
 	def __init__(self, session, settings, kind, request=None):
 		Screen.__init__(self, session)

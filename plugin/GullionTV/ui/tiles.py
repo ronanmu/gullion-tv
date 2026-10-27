@@ -13,6 +13,7 @@ from Components.Pixmap import Pixmap
 from Components.ProgressBar import ProgressBar
 
 from .. import theme
+from . import scale
 
 PARTS = ("frame", "backdrop", "initial", "image", "poster", "logo", "badge", "progress", "band", "name", "sub")
 LOGO_W, LOGO_H = 92, 55  # picons are 220x132
@@ -133,12 +134,13 @@ def colour(widget, background=None, foreground=None):
 
 
 class Pictures(object):
-	"""Decoded pictures, scaled to fit a given size with their shape kept."""
+	"""Decoded pictures, scaled to fit a given design size (scaled to the skin) with their
+	shape kept. Transparent parts are filled with the background colour."""
 
-	def __init__(self, width, height):
+	def __init__(self, width, height, background=theme.CARD):
 		self.cache = {}
 		self.picload = ePicLoad()
-		self.picload.setPara((width, height, 1, 1, False, 1, theme.CARD))
+		self.picload.setPara((scale.px(width), scale.px(height), 1, 1, False, 1, theme.opaque(background)))
 
 	def get(self, path):
 		if not path:
