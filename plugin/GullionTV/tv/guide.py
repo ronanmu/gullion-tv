@@ -13,11 +13,11 @@ from Components.Pixmap import Pixmap
 from Screens.Screen import Screen
 from Tools.LoadPixmap import LoadPixmap
 
-from . import epg, picon
+from . import epg, picon, serviceinfo
 from .. import theme
 from ..recordings import store as recordings
 from ..ui.popups import EventDetails, GullionChoice
-from ..ui import scale, tiles
+from ..ui import icons, scale, tiles
 
 ROWS = 6
 ROW_H = 75
@@ -83,6 +83,16 @@ def _key_hints_skin():
 	return "".join(parts)
 
 
+CODE_ICONS = 4  # subtitles, audio description, sign language, repeat
+CODE_ICONS_RIGHT = 1320
+
+
+def _code_icons_skin():
+	"""The programme's access codes as icons, right-aligned on its title line."""
+	return "".join('<widget name="code%d" position="%d,156" size="40,40" alphatest="blend" zPosition="2" />'
+		% (i, CODE_ICONS_RIGHT - 40 - i * 52) for i in range(CODE_ICONS))
+
+
 class Guide(Screen):
 	skin = """
 	<screen name="GullionGuide" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
@@ -96,7 +106,8 @@ class Guide(Screen):
 		<widget name="picon_fallback" position="90,150" size="220,132" font="Regular;30" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(card)s" zPosition="1" />
 		<widget name="picon" position="90,150" size="220,132" alphatest="blend" zPosition="2" />
 		<widget name="chan_num" position="90,294" size="220,70" font="Regular;26" halign="center" foregroundColor="%(muted)s" transparent="1" />
-		<widget name="ev_title" position="340,146" size="980,60" font="Regular;46" foregroundColor="%(text)s" transparent="1" />
+		<widget name="ev_title" position="340,146" size="760,60" font="Regular;46" noWrap="1" foregroundColor="%(text)s" transparent="1" />
+		%(code_icons)s
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
 		<widget name="ev_rec" position="1000,212" size="320,42" font="Regular;30" halign="right" foregroundColor="%(red)s" transparent="1" />
 		<widget name="ev_desc" position="340,264" size="980,110" font="Regular;28" foregroundColor="%(text)s" transparent="1" />
@@ -117,7 +128,7 @@ class Guide(Screen):
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "card": theme.CARD,
 		"accent": theme.ACCENT, "red": theme.KEY_RED, "yellow": theme.KEY_YELLOW, "live": theme.LIVE,
-		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(), "key_hints": _key_hints_skin(),
+		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(), "key_hints": _key_hints_skin(), "code_icons": _code_icons_skin(),
 		"gx": GRID_X, "gy": GRID_Y, "gw": GRID_W, "gh": ROWS * ROW_H, "ry": RULER_Y,
 		"ny": NOW_Y, "nh": GRID_Y - NOW_Y,
 	}
@@ -132,6 +143,8 @@ class Guide(Screen):
 
 		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
 			self[name] = Label()
+		for i in range(CODE_ICONS):
+			self["code%d" % i] = Pixmap()
 		for i in range(HINTS):
 			for name in ("hint%d_edge", "hint%d_key", "hint%d"):
 				self[name % i] = Label()
@@ -434,7 +447,7 @@ class Guide(Screen):
 	def show_details(self):
 		event = self.selected_event()
 		if event is not None:
-			self.session.open(EventDetails, event.title, self.when(event), event.description)
+			self.session.open(EventDetails, event.title, self.when(event), serviceinfo.split_codes(event.description)[0])
 
 	# Drawing
 
@@ -545,10 +558,13 @@ class Guide(Screen):
 			for name in ("ev_time", "ev_rec", "ev_desc", "hints"):
 				self[name].setText("")
 			self.draw_hints([])
+			self.draw_codes("")
 			return
 		self["ev_title"].setText(event.title)
 		self["ev_time"].setText(self.when(event))
-		self["ev_desc"].setText(event.description)
+		# "(HD, S)" and "[S,AD] [HD]" become icons rather than text.
+		self["ev_desc"].setText(serviceinfo.split_codes(event.description)[0])
+		self.draw_codes(event.description)
 		airing = event.airing(self.now)
 		if epg.find_timer(self.session, channel.ref, event):
 			self["ev_rec"].setText("Recording" if airing else "Will record")
@@ -561,6 +577,18 @@ class Guide(Screen):
 		hints.append(("INFO", "More details"))
 		self["hints"].setText("          ".join("%s  %s" % hint for hint in hints))
 		self.draw_hints(hints)
+
+	def draw_codes(self, description):
+		"""Packed from the right, in the broadcaster's order."""
+		names = [serviceinfo.BADGE_ICONS[code] for code in serviceinfo.badges(description)]
+		for i in range(CODE_ICONS):
+			widget = self["code%d" % i]
+			name = names[len(names) - 1 - i] if i < len(names) else None
+			if name and widget.instance is not None:
+				widget.instance.setPixmap(LoadPixmap(icons.icon_path(name), cached=True))
+				widget.show()
+			else:
+				widget.hide()
 
 	def draw_hints(self, hints):
 		for i in range(HINTS):

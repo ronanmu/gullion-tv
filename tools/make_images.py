@@ -43,7 +43,10 @@ ICONS = {
 	"hd": "hd", "uhd": "4k", "subtitles": "subtitles", "audio_description": "audio_description",
 	"sign_language": "sign_language", "repeat": "replay",
 	"satellite": "satellite_alt", "terrestrial": "cell_tower", "cable": "cable", "internet": "language",
+	"sound": "volume_up", "subtitles_off": "subtitles_off", "check": "check",
 }
+# Drawn dark too, for use on a highlighted (light) row.
+ON_LIGHT = ("check", "audio_description", "subtitles", "subtitles_off")
 ICON_SIZES = (20, 27, 40, 80)  # 40 px at 1920 wide
 
 
@@ -63,10 +66,12 @@ def material_icons(folder, out):
 		big = size * SUPERSAMPLE
 		font = ImageFont.truetype(font_path, big)
 		font.set_variation_by_axes([0, 0, 48, 400])  # outlined, regular weight
-		for name, symbol in sorted(ICONS.items()):
+		drawn = [(name, symbol, theme.TEXT) for name, symbol in sorted(ICONS.items())]
+		drawn += [(name + "_on_light", ICONS[name], theme.TEXT_ON_SELECTED) for name in ON_LIGHT]
+		for name, symbol, colour in drawn:
 			image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
 			glyph = chr(int(codepoints[symbol], 16))
-			ImageDraw.Draw(image).text((big / 2.0, big / 2.0), glyph, font=font, fill=_rgba(theme.TEXT), anchor="mm")
+			ImageDraw.Draw(image).text((big / 2.0, big / 2.0), glyph, font=font, fill=_rgba(colour), anchor="mm")
 			path = os.path.join(out, "%s_%d.png" % (name, size))
 			image.resize((size, size), Image.LANCZOS).save(path)
 			print(path)

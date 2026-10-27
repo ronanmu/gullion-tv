@@ -17,6 +17,8 @@ else:
 _original_main_menu = getattr(InfoBarGenerics.InfoBarMenu, _METHOD)
 _original_info = getattr(getattr(InfoBarGenerics, "InfoBarEPG", None), "InfoPressed", None)
 _original_toggle = getattr(getattr(InfoBarGenerics, "InfoBarShowHide", None), "toggleShow", None)
+_original_audio = getattr(getattr(InfoBarGenerics, "InfoBarAudioSelection", None), "audioSelection", None)
+_original_subtitles = getattr(getattr(InfoBarGenerics, "InfoBarSubtitleSupport", None), "subtitleSelection", None)
 
 
 def _gullion_main_menu(self):
@@ -46,6 +48,62 @@ def _gullion_toggle(self):
 		_original_toggle(self)
 
 
+def _sound_and_subtitles(focus, original):
+	def opener(self):
+		"""YELLOW or AUDIO, and SUBTITLE: one Gullion TV pop-up for both, not the stock lists."""
+		if config.plugins.gulliontv.enabled.value:
+			from .tv.soundsubs import SoundAndSubtitles
+			self.session.open(SoundAndSubtitles, self, focus)
+		else:
+			original(self)
+	return opener
+
+
+# The keys that open the stock guide or channel list on live TV: GUIDE (EPGPressed), the
+# arrows (switchChannelUp/Down), TV and FAV (showTv, openBouquetList) and anything else that
+# opens the channel list. Each opens Gullion TV's guide instead.
+_GUIDE_KEYS = (
+	("InfoBarEPG", "EPGPressed"), ("InfoBarChannelSelection", "switchChannelUp"),
+	("InfoBarChannelSelection", "switchChannelDown"), ("InfoBarChannelSelection", "openServiceList"),
+	("InfoBarChannelSelection", "showTvChannelList"), ("InfoBar", "showTv"), ("InfoBar", "openBouquetList"),
+)
+
+
+def open_guide(session):
+	from .tv.guide import Guide
+	session.open(Guide)
+
+
+def _guide_instead(original):
+	def opener(self, *args, **kwargs):
+		if config.plugins.gulliontv.enabled.value and self is _infobar():
+			# The stock TV key also switches the channel list back from radio to TV, which
+			# number entry uses; keep doing that.
+			tv_mode(self)
+			open_guide(self.session)
+		else:
+			return original(self, *args, **kwargs)
+	opener.gullion_original = original
+	return opener
+
+
+def tv_mode(infobar):
+	servicelist = getattr(infobar, "servicelist", None)
+	if servicelist is not None and hasattr(servicelist, "setModeTv"):
+		servicelist.setModeTv()
+
+
+def _install_guide_keys():
+	from Screens import InfoBar as InfoBarModule
+	for owner_name, method in _GUIDE_KEYS:
+		owner = getattr(InfoBarModule, owner_name, None) if owner_name == "InfoBar" else getattr(InfoBarGenerics, owner_name, None)
+		original = owner is not None and owner.__dict__.get(method)
+		if not original or hasattr(original, "gullion_original"):
+			continue
+		setattr(owner, method, _guide_instead(original))
+		rebind(original, method)
+
+
 def install():
 	setattr(InfoBarGenerics.InfoBarMenu, _METHOD, _gullion_main_menu)
 	if _original_info is not None:
@@ -54,6 +112,13 @@ def install():
 	if _original_toggle is not None:
 		InfoBarGenerics.InfoBarShowHide.toggleShow = _gullion_toggle
 		rebind(_original_toggle, "toggleShow")
+	if _original_audio is not None:
+		InfoBarGenerics.InfoBarAudioSelection.audioSelection = _sound_and_subtitles("audio", _original_audio)
+		rebind(_original_audio, "audioSelection")
+	_install_guide_keys()
+	if _original_subtitles is not None:
+		InfoBarGenerics.InfoBarSubtitleSupport.subtitleSelection = _sound_and_subtitles("subtitles", _original_subtitles)
+		rebind(_original_subtitles, "subtitleSelection")
 	# If InfoBar already exists, its ActionMap holds a bound copy of the old
 	# method, so point the action at the patched one.
 	infobar = _infobar()

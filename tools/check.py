@@ -88,6 +88,32 @@ player._InfoBarShowHide__state = player.STATE_SHOWN
 e2stubs.InfoBarShowHide.toggleShow(player)
 assert player.toggled, "only live TV's banner, not the recordings player's"
 Screens.InfoBar.InfoBar.instance = None
+opened[:] = []
+listener = e2stubs.InfoBarAudioSelection()
+listener.session = types.SimpleNamespace(open=lambda cls, *a: opened.append((cls.__name__,) + a[1:]))
+e2stubs.InfoBarAudioSelection.audioSelection(listener)
+e2stubs.InfoBarSubtitleSupport.subtitleSelection(listener)
+assert opened == [("SoundAndSubtitles", "audio"), ("SoundAndSubtitles", "subtitles")], opened
+# GUIDE, the arrows, TV and FAV on live TV open Gullion TV's guide, not the stock ones.
+opened[:] = []
+zapper = e2stubs.InfoBarChannelSelection()
+zapper.session = types.SimpleNamespace(open=lambda cls, *a: opened.append(cls.__name__))
+modes = []
+zapper.servicelist = types.SimpleNamespace(setModeTv=lambda: modes.append("tv"))
+Screens.InfoBar.InfoBar.instance = zapper
+e2stubs.InfoBarChannelSelection.switchChannelUp(zapper)
+e2stubs.InfoBarChannelSelection.showTvChannelList(zapper, True)
+e2stubs.InfoBarEPG.EPGPressed(zapper)
+assert opened == ["Guide", "Guide", "Guide"] and not hasattr(zapper, "opened"), opened
+assert modes == ["tv", "tv", "tv"], "the channel list goes back to TV mode, as the stock TV key does"
+config.plugins.gulliontv.enabled.value = False
+e2stubs.InfoBarChannelSelection.switchChannelUp(zapper)
+assert zapper.opened == "stock channel list", "the stock list while Gullion TV is off"
+config.plugins.gulliontv.enabled.value = True
+Screens.InfoBar.InfoBar.instance = None
+hook.install()
+assert not hasattr(e2stubs.InfoBarChannelSelection.switchChannelUp.gullion_original, "gullion_original"), "installing twice doesn't wrap twice"
+Screens.InfoBar.InfoBar.instance = None
 print("hook ok")
 config.plugins.gulliontv.enabled.value = True
 
@@ -331,6 +357,19 @@ g = guide.Guide(session)
 g.layout()
 g.ok()
 assert session.zapped == [g.channels[0].ref] and g.closed == ("watch",)
+# Access codes in the guide: taken out of the description, shown as icons instead.
+g = guide.Guide(session)
+g.layout()
+coded = guide.epg.Event(1, sample_epg.NOW - 600, 3600, "Blue Lights", "", "Sandra enlists help. [S,AD] [HD]")
+g.selected_event = lambda: coded
+g.draw_details()
+assert g["ev_desc"].text == "Sandra enlists help.", g["ev_desc"].text
+shown = [os.path.basename(g["code%d" % i].instance.pixmap).rsplit("_", 1)[0] for i in range(guide.CODE_ICONS) if g["code%d" % i].visible]
+assert shown == ["audio_description", "subtitles"], shown
+details = []
+g.session = types.SimpleNamespace(open=lambda cls, *a: details.append(a), nav=session.nav)
+g.show_details()
+assert details and details[-1][2] == "Sandra enlists help.", details
 print("guide ok")
 
 # INFO on live TV: now, and what's coming up.
@@ -351,6 +390,95 @@ shown = [info["icon%d" % i].instance.pixmap if info["icon%d" % i].visible else N
 assert [os.path.basename(p).rsplit("_", 1)[0] if p else None for p in shown] == ["terrestrial", "hd", "audio_description", "subtitles", None, None], shown
 assert "(HD" not in info["description"].text, info["description"].text
 print("info panel ok")
+
+# YELLOW: sound tracks and subtitles in one pop-up.
+from GullionTV.tv import soundsubs  # noqa: E402
+assert soundsubs.track_label("NAR", "MPEG") == "Audio description"
+assert soundsubs.track_label("Dolby Audio", "AC3") == "Main sound  ·  Dolby"
+assert soundsubs.track_label("eng", "MPEG") == "English"
+assert soundsubs.track_label("gle", "AAC") == "Irish"
+assert soundsubs.subtitle_label((0, 1234, 0, 0, "eng")) == "English"
+assert soundsubs.subtitle_label((1, 0, 888, 8, "eng")) == "English  ·  Teletext"
+
+
+class Track(object):
+	def __init__(self, language, codec):
+		self.language, self.codec = language, codec
+
+	def getLanguage(self):
+		return self.language
+
+	def getDescription(self):
+		return self.codec
+
+
+class Tracks(object):
+	def __init__(self):
+		self.current = 1
+		self.list = [Track("NAR", "MPEG"), Track("Dolby Audio", "AC3")]
+
+	def getNumberOfTracks(self):
+		return len(self.list)
+
+	def getTrackInfo(self, i):
+		return self.list[i]
+
+	def getCurrentTrack(self):
+		return self.current
+
+	def selectTrack(self, i):
+		self.current = i
+
+
+tracks = Tracks()
+live_service = types.SimpleNamespace(audioTracks=lambda: tracks)
+sound_session = types.SimpleNamespace(nav=types.SimpleNamespace(getCurrentService=lambda: live_service))
+subtitle_list = [(0, 1234, 0, 0, "eng")]
+watching = types.SimpleNamespace(selected_subtitle=None,
+	getCurrentServiceSubtitle=lambda: types.SimpleNamespace(getSubtitleList=lambda: subtitle_list))
+watching.enableSubtitle = lambda subtitle: setattr(watching, "selected_subtitle", subtitle)
+popup = soundsubs.SoundAndSubtitles(sound_session, watching)
+for widget in ET.fromstring(soundsubs.SoundAndSubtitles.skin).iter("widget"):
+	assert widget.get("name") in popup, widget.get("name")
+popup.layout()
+
+
+def column(screen, c):
+	return [screen["col%d_row%d" % (c, i)].text for i in range(len(screen.columns[c]))]
+
+
+def ticked(screen, c):
+	return [i for i in range(len(screen.columns[c])) if screen["col%d_row%d_tick" % (c, i)].visible]
+
+
+assert column(popup, soundsubs.SOUND) == ["Audio description", "Main sound  ·  Dolby"]
+assert column(popup, soundsubs.SUBTITLES) == ["Off", "English"]
+assert popup.column == soundsubs.SOUND and popup.row[0] == 1 and ticked(popup, 0) == [1], "opens on the track that's playing"
+assert ticked(popup, 1) == [0], "subtitles are off"
+assert popup["col0_row0_icon"].instance.pixmap.endswith("audio_description_40.png")
+assert popup["col0_row1_tick"].instance.pixmap.endswith("check_on_light_40.png"), "a dark tick on the highlighted row"
+popup.move(-1)
+popup.choose()
+assert tracks.current == 0 and ticked(popup, 0) == [0], "OK switches to audio description"
+popup.switch(soundsubs.SUBTITLES)
+popup.move(1)
+popup.choose()
+assert watching.selected_subtitle == (0, 1234, 0, 0, "eng") and ticked(popup, 1) == [1]
+popup.move(-1)
+popup.choose()
+assert watching.selected_subtitle is None and ticked(popup, 1) == [0], "Off turns them off"
+assert not popup["col1_row2_bg"].visible, "unused rows are hidden"
+subs_first = soundsubs.SoundAndSubtitles(sound_session, watching, "subtitles")
+subs_first.layout()
+assert subs_first.column == soundsubs.SUBTITLES, "SUBTITLE opens on the subtitles"
+subtitle_list[:] = []
+tracks.list = tracks.list[:1]
+none = soundsubs.SoundAndSubtitles(sound_session, watching)
+none.layout()
+assert column(none, 0) == ["Only one sound track"] and column(none, 1) == ["None for this programme"]
+assert not none["col0_row0_bg"].visible, "a note isn't drawn as a choice"
+none.choose()
+print("sound and subtitles ok")
 
 # Channel banner: plain-language service facts.
 assert serviceinfo.delivery("1:0:19:1:1:1:EEEE0000:0:0:0:") == "Terrestrial"
@@ -380,13 +508,10 @@ assert serviceinfo.signal_details(None, None) == [], "a stream has no tuner"
 print("service info ok")
 
 saorview_hd = "1:0:19:1:1:1:EEEE0000:0:0:0:"
-for kind, expected in (("Delivery", "Terrestrial"), ("Number", "1")):
+for kind, expected in (("Number", "1"), ("Name", "RTÉ One")):
 	c = converter.GullionServiceInfo(kind)
-	c.source = e2stubs.fake_service(saorview_hd)
+	c.source = e2stubs.fake_service(saorview_hd, name="\xc2\x86RTÉ One\xc2\x87")
 	assert c.text == expected, (kind, c.text)
-c = converter.GullionServiceInfo("IsHD")
-c.source = e2stubs.fake_service("1:0:19:5:1:1:11A0000:0:0:0:")
-assert c.boolean
 c = converter.GullionServiceInfo("Remaining")
 c.source = types.SimpleNamespace(event=types.SimpleNamespace(getBeginTime=lambda: sample_epg.NOW - 42 * 60, getDuration=lambda: 3600))
 assert c.text == "18 min left" and c.poll_enabled
@@ -436,7 +561,7 @@ for widget in element.iter("widget"):
 	for convert in widget.iter("convert"):
 		assert convert.get("type") in known, convert.get("type")
 		if convert.get("type") == "GullionServiceInfo":
-			assert convert.text in ("Delivery", "Number", "Name", "IsHD", "Remaining") or convert.text.startswith("Icon:"), convert.text
+			assert convert.text in ("Number", "Name", "Remaining") or convert.text.startswith("Icon:"), convert.text
 assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
 for name in ("NumberZap", "Volume"):
 	popup, path = skin.dom_screens[name]

@@ -38,14 +38,15 @@ SKIN = """
 <screen name="InfoBar" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="#ff000000">
 	<eLabel position="60,%(panel_y)d" size="1800,%(panel_h)d" backgroundColor="%(panel)s" />
 
-	<widget source="session.CurrentService" render="Picon" position="90,836" size="220,132" zPosition="2" alphatest="blend">
+	<!-- Channel number over a larger picon, kept at the picons' 5:3 shape. -->
+	<widget source="session.CurrentService" render="Picon" position="80,878" size="250,150" zPosition="2" alphatest="blend">
 		<convert type="ServiceName">Reference</convert>
 	</widget>
 
-	<widget source="session.CurrentService" render="Label" position="340,832" size="110,62" font="Regular;48" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+	<widget source="session.CurrentService" render="Label" position="80,822" size="250,50" font="Regular;40" halign="center" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="GullionServiceInfo">Number</convert>
 	</widget>
-	<widget source="session.CurrentService" render="Label" position="460,832" size="850,62" font="Regular;48" foregroundColor="%(text)s" transparent="1" zPosition="2">
+	<widget source="session.CurrentService" render="Label" position="370,832" size="940,62" font="Regular;48" foregroundColor="%(text)s" transparent="1" zPosition="2">
 		<convert type="GullionServiceInfo">Name</convert>
 	</widget>
 	<widget source="session.RecordState" render="FixedLabel" text="Recording" position="1330,843" size="180,40" font="Regular;26" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(red)s" zPosition="2">
@@ -55,27 +56,27 @@ SKIN = """
 		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
 
-	<eLabel text="Now" position="340,906" size="110,50" font="Regular;32" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
-	<widget source="session.Event_Now" render="Label" position="460,906" size="110,50" font="Regular;36" valign="center" foregroundColor="%(accent)s" transparent="1" zPosition="2">
+	<eLabel text="Now" position="370,906" size="110,50" font="Regular;32" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
+	<widget source="session.Event_Now" render="Label" position="490,906" size="110,50" font="Regular;36" valign="center" foregroundColor="%(accent)s" transparent="1" zPosition="2">
 		<convert type="EventTime">StartTime</convert>
 		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
-	<widget source="session.Event_Now" render="Label" position="580,904" size="940,54" font="Regular;40" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
+	<widget source="session.Event_Now" render="Label" position="610,904" size="910,54" font="Regular;40" valign="center" foregroundColor="%(text)s" transparent="1" zPosition="2">
 		<convert type="EventName">Name</convert>
 	</widget>
 	<widget source="session.Event_Now" render="Label" position="1530,906" size="300,50" font="Regular;30" halign="right" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="GullionServiceInfo">Remaining</convert>
 	</widget>
-	<widget source="session.Event_Now" render="Progress" position="340,964" size="1490,6" foregroundColor="%(text)s" backgroundColor="%(divider)s" zPosition="2">
+	<widget source="session.Event_Now" render="Progress" position="370,964" size="1460,6" foregroundColor="%(text)s" backgroundColor="%(divider)s" zPosition="2">
 		<convert type="EventTime">Progress</convert>
 	</widget>
 
-	<eLabel text="Next" position="340,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
-	<widget source="session.Event_Next" render="Label" position="460,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+	<eLabel text="Next" position="370,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2" />
+	<widget source="session.Event_Next" render="Label" position="490,980" size="110,42" font="Regular;30" valign="center" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="EventTime">StartTime</convert>
 		<convert type="ClockToText">Format:%%H:%%M</convert>
 	</widget>
-	<widget source="session.Event_Next" render="Label" position="580,980" size="720,42" font="Regular;30" valign="center" noWrap="1" foregroundColor="%(muted)s" transparent="1" zPosition="2">
+	<widget source="session.Event_Next" render="Label" position="610,980" size="690,42" font="Regular;30" valign="center" noWrap="1" foregroundColor="%(muted)s" transparent="1" zPosition="2">
 		<convert type="EventName">Name</convert>
 	</widget>
 	%(icons)s

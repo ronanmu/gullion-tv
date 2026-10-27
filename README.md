@@ -49,14 +49,25 @@ Gullion TV style.
   Watch TV (red), TV guide (green), Watch again (yellow) and Webcams (blue), in remote order.
   The matching colour button opens each card directly.
 - **Settings** (press down from the cards) asks for the Tech Support PIN, then opens the stock OpenATV menu.
+  The PIN also guards every other way into the stock settings and plugins: GREEN's plugin list, BLUE's
+  extensions, the channel list's edit menu and anything set up in Button setup.
 - **TV guide** (green): the selected channel's picon, programme details and the live picture on top, a day bar, and a two-hour grid of six
   channels. Arrows move, CH +/- pages, red/green jump a day, yellow switches channel list, blue returns to now.
   OK watches a programme that's on now, or offers to record a later one. REC records, INFO shows full details.
+  Typing a channel number jumps to it. Subtitles, audio description, sign language and repeats are shown as icons.
+  GUIDE, the arrows, TV and FAV open this guide from live TV, in place of the stock guide and channel list.
   Each time it opens, the guide checks the recording drive (mounted, writable, at least 2 GB free). If the box
   can't record, the REC hint and record options go and REC explains why; under 10 GB it warns that space is low.
-- **Channel banner** over live TV: picon, channel number and name, HD or SD, satellite (with position) or
-  terrestrial, a Recording badge while anything is recording, signal strength, and now/next with time left.
+- **Channel banner** over live TV: the channel number over its picon, the channel name, now/next with time left, a
+  Recording badge while anything is recording, and a row of Material Symbols icons (subtitles, audio description,
+  sign language and repeat from the listing; HD or 4K; satellite, terrestrial, cable or internet) beside a signal
+  gauge. Channel numbers match the box's own, including Freesat's (BBC One NI HD is 101).
   It replaces the skin's own banner, so it still appears on every channel change and hides as usual.
+- **What's on** (INFO, or OK twice): the programme on now with its description and the next five, plus the
+  tuner's signal quality, SNR, power, errors and frequency.
+- **Sound and subtitles** (YELLOW, AUDIO or SUBTITLE): the sound tracks (main sound, audio description) and
+  subtitles (off, DVB, teletext) side by side; OK switches straight away.
+- Typing a number on live TV and the volume show Gullion TV's own pop-ups.
 - **Webcams** (blue): tiles for each camera in `/etc/enigma2/gulliontv/webcams.yaml`, with a picture, its name and
   whether it's live (and, for churchservices.tv, the next service). OK plays it full screen; BACK puts the previous
   channel back. Pages are checked in the background, so the grid shows straight away.
@@ -74,7 +85,8 @@ Gullion TV style.
 ```
 plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/Plugins/Extensions/GullionTV)
   plugin.py              plugin descriptors: session-start hook and the Plugins menu entry
-  hook.py                redirects MENU to Gullion TV and keeps the stock menu for Tech Support
+  hook.py                redirects MENU, INFO, OK, YELLOW and the guide keys to Gullion TV's screens
+  lock.py                asks for the Tech Support PIN before any stock settings or plugin screen opens
   settings.py            the box settings: on/off, channel banner, Tech Support PIN
   setup.py               Tech Support settings screen
   home.py                the Home screen
@@ -82,20 +94,26 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   weather/
     forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours
-  images/                small icons: rec_clock.png marks recordings in the guide; weather/ holds the Yr weather icons
+  images/                rec_clock marks recordings in the guide; weather/ holds the Yr weather icons;
+                         icons/ holds the Material Symbols (Apache 2.0) for the banner and pop-ups
   ui/                    shared building blocks
     tiles.py             picture tiles for Watch again, All recordings and the Plex views
     popups.py            themed choice and programme-details pop-ups
     pin.py               PIN prompts, including choosing the Tech Support PIN on first use
     placeholder.py       stand-in screen for parts still to come
     background.py        runs network and disk work off the screen thread
+    scale.py             fits the 1920x1080 layouts to the skin's size
+    icons.py             picks each Material icon at the size nearest the skin's
   tv/                    live TV
     guide.py             the TV guide
     epg.py               channel lists, programme data, record timers and channel switching
     picon.py             finds the picon (channel logo) file for any channel
-    infobar.py           the channel banner, swapped in for the skin's InfoBar at start-up
-    converter.py         GullionServiceInfo skin converter: Delivery, Number, IsHD, Remaining
-    serviceinfo.py       HD, satellite/terrestrial and channel numbers from service references
+    infobar.py           the channel banner, number entry and volume pop-ups, swapped in at start-up
+    converter.py         GullionServiceInfo skin converter: Number, Name, Remaining, Icon:N
+    renderer.py          GullionIcon skin renderer, which draws the banner's icons
+    serviceinfo.py       HD, delivery, access codes, signal details and channel numbers
+    nowinfo.py           the What's on panel (INFO)
+    soundsubs.py         the Sound and subtitles pop-up (YELLOW)
   recordings/            the box's own recordings
     store.py             reads recordings and resume points, checks the drive, deletes to the recycle bin
     thumbnails.py        a frame from each recording, via ffmpeg, saved as <recording>.ts.jpg
@@ -112,7 +130,7 @@ scripts/deploy.sh        copy to the box, restart enigma2, save a screenshot
 tools/check.py           offline check against stub enigma2 modules (python3 tools/check.py)
 tools/e2stubs.py         stand-ins for the enigma2 modules, used by check.py and preview.py
 tools/sample_*.py        made-up channels, Plex replies, recordings and webcam pages for the checks and renders
-tools/make_images.py     regenerate images/ from the theme colours (needs Pillow)
+tools/make_images.py     regenerate images/ from the theme colours, and icons/ from the Material Symbols font (needs Pillow)
 tools/fetch_weather_icons.py  fetch and scale the Yr weather icons into images/weather/ (needs Pillow)
 tools/preview.py         render sample screenshots to screenshots/samples/ (needs Pillow)
 ```

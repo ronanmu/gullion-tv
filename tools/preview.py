@@ -24,8 +24,8 @@ import sample_webcams
 e2stubs.install()
 from GullionTV import home, watchagain  # noqa: E402
 from GullionTV.plex import client as plex, library as plexlibrary, setup as plexsetup  # noqa: E402
-from GullionTV.tv import converter, epg, guide, infobar, picon  # noqa: E402
-from GullionTV.ui import pin, placeholder, popups  # noqa: E402
+from GullionTV.tv import converter, epg, guide, infobar, picon, serviceinfo  # noqa: E402
+from GullionTV.ui import icons as ui_icons, pin, placeholder, popups  # noqa: E402
 from GullionTV.webcams import screens as webcams, sources  # noqa: E402
 from GullionTV.weather import forecast  # noqa: E402
 import sample_plex  # noqa: E402
@@ -277,17 +277,19 @@ def resolve(el, state):
 	for kind, arg in converts:
 		if kind == "GullionServiceInfo":
 			c = converter.GullionServiceInfo(arg)
+			if arg.startswith("Icon:"):
+				# The banner's icon row: the programme's codes, then hd, then how it arrives.
+				names = serviceinfo.icon_row(state["ref"], state.get("height", 1080), state.get("description", ""))
+				position = int(arg.split(":")[1])
+				text = names[-position] if position <= len(names) else ""
+				visible = bool(text)
+				continue
 			if arg == "Remaining":
 				c.source = e2stubs.types.SimpleNamespace(event=e2stubs.types.SimpleNamespace(
 					getBeginTime=lambda: event[0], getDuration=lambda: event[1]))
 			else:
-				c.source = e2stubs.fake_service(state["ref"], state.get("height", -1))
-			if arg == "IsHD":
-				visible = c.boolean
-				if ("ConditionalShowHide", "Invert") in converts:
-					visible = not visible
-			else:
-				text = c.text
+				c.source = e2stubs.fake_service(state["ref"], state.get("height", -1), state["name"])
+			text = c.text
 		elif kind == "ServiceName":
 			text = state["name"]
 		elif kind == "FrontendInfo":
@@ -363,6 +365,10 @@ def render(screen, base=None, state=None):
 				continue
 			if el.get("render") == "Picon":
 				draw_picon(draw, box, state["name"])
+				continue
+			if el.get("render") == "GullionIcon":
+				icon = Image.open(ui_icons.icon_path(text)).convert("RGBA").resize((w, h), Image.LANCZOS)
+				image.paste(icon, box[:2], icon)
 				continue
 			if background is not None and el.get("transparent") != "1":
 				draw.rectangle((box[0], box[1], box[0] + w - 1, box[1] + h - 1), fill=background)
@@ -468,8 +474,9 @@ def main():
 
 	banners = [
 		("13-banner-terrestrial", {"ref": "1:0:19:1:1:1:EEEE0000:0:0:0:", "name": "RTÉ One", "snr": 82,
-			"now": (SEVEN_PM, 3600, "Nationwide"), "next": (SEVEN_PM + 3600, 1800, "Fair City")}),
+			"description": "The stories that matter from around the country. (HD, S)", "now": (SEVEN_PM, 3600, "Nationwide"), "next": (SEVEN_PM + 3600, 1800, "Fair City")}),
 		("14-banner-satellite-recording", {"ref": "1:0:19:5:1:1:11A0000:0:0:0:", "name": "BBC One NI", "snr": 71,
+			"description": "Drama in Walford. [S,AD] [HD]",
 			"recording": True, "now": (SEVEN_PM + 1800, 1800, "EastEnders"), "next": (SEVEN_PM + 3600, 3600, "MasterChef")}),
 		("15-banner-sd", {"ref": "1:0:19:4:1:1:EEEE0000:0:0:0:", "name": "TG4", "snr": 64, "height": 576,
 			"now": (SEVEN_PM + 1200, 2400, "Ros na Rún"), "next": (SEVEN_PM + 3600, 3600, "Seó Spóirt")}),

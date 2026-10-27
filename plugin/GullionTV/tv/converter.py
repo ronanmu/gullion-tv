@@ -2,11 +2,9 @@
 """Skin converter for the channel banner, registered as
 Components.Converter.GullionServiceInfo by infobar.install().
 
-	Delivery   (session.CurrentService) "Terrestrial", "Satellite · 28.2°E", ...
 	Number     (session.CurrentService) channel number as the guide shows it
 	Name       (session.CurrentService) channel name alone: OpenATV 7.x's ServiceName
 	                                    Name puts the channel number in front
-	IsHD       (session.CurrentService) boolean, for ConditionalShowHide
 	Remaining  (session.Event_Now)      "18 min left"
 	Icon:N     (session.Event_Now)      the Nth icon from the right of the programme's
 	                                    row (access codes, hd/uhd, delivery), for the
@@ -85,8 +83,6 @@ class GullionServiceInfo(Poll, Converter, object):
 			# Drop the emphasis markers some broadcasters put in names, as ServiceName does.
 			return name.replace("\xc2\x86", "").replace("\xc2\x87", "")
 		ref, height = self.service_details()
-		if self.type == "Delivery":
-			return serviceinfo.delivery(ref)
 		if self.type == "Number":
 			if not _numbers:
 				_numbers.update(serviceinfo.channel_numbers(epg.channel_lists()))
@@ -95,15 +91,6 @@ class GullionServiceInfo(Poll, Converter, object):
 		return ""
 
 	text = property(getText)
-
-	@cached
-	def getBoolean(self):
-		if self.type == "IsHD":
-			ref, height = self.service_details()
-			return serviceinfo.is_hd(ref, height)
-		return False
-
-	boolean = property(getBoolean)
 
 	def changed(self, what):
 		if what[0] == self.CHANGED_SPECIFIC:

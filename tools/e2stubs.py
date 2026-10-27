@@ -198,6 +198,9 @@ class InfoBarEPG(object):
 	def InfoPressed(self):
 		self.opened = "stock info"
 
+	def EPGPressed(self):
+		self.opened = "stock guide"
+
 
 class InfoBarShowHide(object):
 	STATE_HIDDEN, STATE_SHOWN = 0, 2
@@ -207,6 +210,24 @@ class InfoBarShowHide(object):
 
 	def hide(self):
 		self._InfoBarShowHide__state = self.STATE_HIDDEN
+
+
+class InfoBarChannelSelection(object):
+	def switchChannelUp(self):
+		self.opened = "stock channel list"
+
+	def showTvChannelList(self, zap=False):
+		self.opened = "stock channel list"
+
+
+class InfoBarAudioSelection(object):
+	def audioSelection(self):
+		self.opened = "stock audio"
+
+
+class InfoBarSubtitleSupport(object):
+	def subtitleSelection(self):
+		self.opened = "stock subtitles"
 
 
 class MoviePlayer(Screen):
@@ -266,7 +287,9 @@ def install():
 	_module("ServiceReference", ServiceReference=lambda ref: types.SimpleNamespace(
 		getServiceName=lambda: getattr(ref, "name", None) or SERVICE_NAMES.get(ref, "")))
 	_module("Screens.Screen", Screen=Screen)
-	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu, InfoBarExtensions=InfoBarExtensions, InfoBarEPG=InfoBarEPG, InfoBarShowHide=InfoBarShowHide)
+	_module("Screens.InfoBarGenerics", InfoBarMenu=InfoBarMenu, InfoBarExtensions=InfoBarExtensions, InfoBarEPG=InfoBarEPG, InfoBarShowHide=InfoBarShowHide,
+		InfoBarAudioSelection=InfoBarAudioSelection, InfoBarSubtitleSupport=InfoBarSubtitleSupport,
+		InfoBarChannelSelection=InfoBarChannelSelection)
 	_module("Screens.InfoBar", InfoBar=type("InfoBar", (), {"instance": None}), MoviePlayer=MoviePlayer)
 	_module("Plugins.Plugin", PluginDescriptor=type("PluginDescriptor", (Obj,), {"WHERE_SESSIONSTART": 1, "WHERE_PLUGINMENU": 2}))
 	sys.path.insert(0, os.path.abspath(PLUGIN_PARENT))
@@ -297,10 +320,11 @@ def fake_session(channel="RTÉ One", now=None, upcoming=None):
 	return session
 
 
-def fake_service(ref, video_height=-1):
+def fake_service(ref, video_height=-1, name=""):
 	"""A playing service as session.CurrentService exposes it."""
 	info = types.SimpleNamespace(
 		getInfoString=lambda what: ref,
 		getInfo=lambda what: video_height,
+		getName=lambda: name,
 	)
 	return types.SimpleNamespace(service=types.SimpleNamespace(info=lambda: info))

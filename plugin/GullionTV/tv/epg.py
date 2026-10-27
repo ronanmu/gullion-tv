@@ -138,6 +138,9 @@ def zap(session, ref, bouquet_ref):
 	if servicelist is None:
 		session.nav.playService(service)
 		return
+	# Back to TV mode first: after a radio station the list may still be in radio mode.
+	if hasattr(servicelist, "setModeTv"):
+		servicelist.setModeTv()
 	bouquet = eServiceReference(bouquet_ref)
 	if servicelist.getRoot() != bouquet:
 		servicelist.clearPath()

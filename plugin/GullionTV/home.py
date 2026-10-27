@@ -121,6 +121,11 @@ class GullionHome(Screen):
 		for index, card in enumerate(CARDS):
 			actions[card[2]] = lambda index=index: self.open_item(index)
 		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "ColorActions", "MenuActions"], actions, -1)
+		# GUIDE, TV and FAV open the TV guide here too, as they do on live TV.
+		guide = lambda: self.open_item(1)
+		self["guide_keys"] = ActionMap(["InfobarEPGActions", "InfobarActions"], {
+			"EPGPressed": guide, "showTv": guide, "openBouquetList": guide,
+		}, -1)
 
 		self.refresh_timer = eTimer()
 		self.refresh_timer.callback.append(self.refresh)
