@@ -52,7 +52,8 @@ def make(recording, ffmpeg=None, run=None):
 		return None
 	run = run or _run
 	target = path_for(recording.path)
-	working = target + ".part"
+	# Keep the image extension last: ffmpeg chooses its output format from it.
+	working = target + ".part.jpg"
 	with _lock:  # one ffmpeg at a time
 		for share in TRIES:
 			if run(command(ffmpeg, recording.path, working, recording.duration * share)) != 0:

@@ -66,7 +66,7 @@ offline checks (section 7).
 | **Recordings screen** (list plus large details, file size, status, sort, MENU options, delete to recycle bin) | Opened with real recordings on the GigaBlue, 28 October 2026; playback and deletion were not driven |
 | Safe recording deletion: active-timer guard, background moves, separate recycle-bin folders, rollback and failure messages | Offline checks only, 28 October 2026; not deployed |
 | Gullion recording playback panel: title/description, scrub-able progress, icon-only pause/play and 30-second skips, conditional subtitles, auto-hide | Latest refinements have offline checks and renders only, 28 October 2026; the earlier panel was deployed but never driven on the box |
-| Recording frames via ffmpeg, now 768×432 (older 328×184 ones remade) | Offline checks only for the new size. Whether ffmpeg is installed on the GigaBlue is not recorded |
+| Recording frames via ffmpeg, now 768×432 (older 328×184 ones remade) | Fixed and tried on the GigaBlue; 18 real previews generated, 28 October 2026 |
 | Experimental Media screen: All, Recorded TV, Movies on Plex and TV Shows on Plex | Preserved by `experimental-media-design`; tried on the GigaBlue with real data, 28 October 2026 |
 | Plex: linking, Home user, server choice, libraries, Films and TV programmes poster views | Offline checks against sample Plex replies only. No record of testing against a real Plex server |
 | Plex playback, opening a film or programme | **Not implemented** (shows "Playing from Plex arrives in the next update") |
@@ -241,6 +241,12 @@ Driving the box remotely for testing uses OpenWebif:
 
 Latest milestone, 28 October 2026:
 
+- Diagnosed why recording previews never appeared on the GigaBlue: ffmpeg was given a temporary output ending
+  `.jpg.part`, so ffmpeg 8 could not infer an output format. The temporary name now ends `.part.jpg`, retaining a
+  JPEG extension. Added regression coverage for cleanup of that exact temporary path. Deployed at 23:19; opening
+  Recordings generated 18 real 768×432 previews and the screen displayed them. The two newest zero-duration test
+  recordings correctly remain on their picons because there is no usable seek duration.
+
 - Committed the unified Media experiment as `37fa30f` and tagged it `experimental-media-design`. The following
   local change restores the Home card name to Recordings and makes YELLOW open the dedicated list shown in
   `22-recordings.png`. Deployed at 23:01 and confirmed with 25 real recordings on the GigaBlue.
@@ -254,6 +260,9 @@ Latest milestone, 28 October 2026:
 
 Deployed on 28 October 2026 to the GigaBlue UHD Quad 4K at the owner's supplied address:
 
+- At 23:19, deployed the ffmpeg temporary-extension fix. Box compilation, install, retained configuration, enigma2
+  restart and post-restart screenshot succeeded (`screenshots/20261028-231915.png`, gitignored). Opening Recordings
+  completed its catch-up queue and produced 18 `.ts.jpg` files; real broadcast frames were visible in the list.
 - At 23:01, deployed commit `1e8d920`. Box compilation, install, retained configuration, enigma2 restart and the
   post-restart screenshot succeeded (`screenshots/20261028-230113.png`, gitignored). YELLOW from Home opened the
   dedicated Recordings screen with 25 real programmes, picons and the selected programme's detail panel. No

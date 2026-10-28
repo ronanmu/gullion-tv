@@ -1458,8 +1458,9 @@ original_path_for = thumbnails.path_for
 thumbnails.path_for = lambda path: path + ".frame-test"
 made = thumbnails.make(sample, "/usr/bin/ffmpeg", fake_ffmpeg)
 assert made == sample.path + ".frame-test" and os.path.getsize(made) == 19000, "a nearly blank first try is taken again further in"
+assert not os.path.exists(sample.path + ".frame-test.part.jpg"), "the JPEG temporary file must be renamed or removed"
 assert calls[0][calls[0].index("-ss") + 1] == str(int(sample.duration * 0.10)) and calls[1][calls[1].index("-ss") + 1] == str(int(sample.duration * 0.25))
-assert "scale=768:432" in calls[0] and not os.path.exists(made + ".part")
+assert calls[0][-1].endswith(".part.jpg") and "scale=768:432" in calls[0], "ffmpeg must see a JPEG extension on its temporary output"
 assert thumbnails.make(sample, None, fake_ffmpeg) is None or thumbnails.find_ffmpeg(), "no ffmpeg, no picture"
 assert thumbnails.make_missing(recordings.list_recordings(folder), 12, "/usr/bin/ffmpeg", lambda arguments: 1) == 0
 os.remove(made)
