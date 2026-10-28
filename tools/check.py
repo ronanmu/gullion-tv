@@ -110,6 +110,52 @@ config.plugins.gulliontv.enabled.value = False
 e2stubs.InfoBarChannelSelection.switchChannelUp(zapper)
 assert zapper.opened == "stock channel list", "the stock list while Gullion TV is off"
 config.plugins.gulliontv.enabled.value = True
+# REC on live TV: records the programme on now straight away; again asks whether to stop.
+recorder = e2stubs.InfoBarInstantRecord()
+asked = []
+here = types.SimpleNamespace(toCompareString=lambda: "1:0:19:1:1:1:EEEE0000:0:0:0:")
+recorder.session = types.SimpleNamespace(nav=types.SimpleNamespace(getCurrentlyPlayingServiceReference=lambda: here),
+	open=lambda cls, *a: asked.append((cls.__name__,) + a), openWithCallback=lambda cb, cls, *a: asked.append((cls.__name__, cb) + a))
+recorder.recording = []
+Screens.InfoBar.InfoBar.instance = recorder
+e2stubs.InfoBarInstantRecord.keyInstantRecord(recorder)
+assert recorder.started is True and not asked and not hasattr(recorder, "opened"), "until the programme ends, no questions"
+running = types.SimpleNamespace(service_ref=types.SimpleNamespace(ref=here), isRunning=lambda: True)
+recorder.recording = [running]
+e2stubs.InfoBarInstantRecord.keyInstantRecord(recorder)
+assert asked[-1][0] == "GullionChoice" and asked[-1][2] == "This channel is recording", asked
+assert len(hook._timers) == 1, "the banner is shown again once the recording is under way"
+shown = []
+recorder.doShow = lambda: shown.append(True)
+recorder.session.CurrentService = types.SimpleNamespace(CHANGED_ALL=1, changed=lambda what: shown.append(what))
+for fnc in hook._timers[0].callback:
+	fnc()
+assert shown == [(1,), True], "re-read for the REC pill, then shown"
+asked[-1][1]("stop")
+assert recorder.stopped == 0
+# STOP on live TV stops this channel's recording; with nothing recording it goes on to the box.
+recorder.stopped = None
+assert hook._stop_key(recorder) is None and recorder.stopped == 0
+recorder.recording = []
+recorder.stopped = None
+assert hook._stop_key(recorder) == 0 and recorder.stopped is None
+from GullionTV.recordings import store as record_store  # noqa: E402
+real_storage = record_store.storage
+record_store.storage = lambda folder=None: (record_store.MISSING, 0)
+recorder.recording = []
+recorder.started = None
+e2stubs.InfoBarInstantRecord.keyInstantRecord(recorder)
+assert recorder.started is None and asked[-1][1] == "This box can't record right now", "no drive, no recording"
+record_store.storage = real_storage
+# No "A recording has been started" pop-up, and the box's own setting is left as it was.
+import RecordTimer  # noqa: E402  the stub
+entry = RecordTimer.RecordTimerEntry()
+entry.gotRecordEvent(None, 1)
+assert entry.popup is False and config.usage.show_message_when_recording_starts.value is True
+config.plugins.gulliontv.enabled.value = False
+entry.gotRecordEvent(None, 1)
+assert entry.popup is True, "the stock pop-up while Gullion TV is off"
+config.plugins.gulliontv.enabled.value = True
 Screens.InfoBar.InfoBar.instance = None
 hook.install()
 assert not hasattr(e2stubs.InfoBarChannelSelection.switchChannelUp.gullion_original, "gullion_original"), "installing twice doesn't wrap twice"
@@ -281,9 +327,10 @@ assert time.strftime("%H:%M", time.localtime(g.window_start)) == "19:30"
 assert len(g["grid"].list) == guide.ROWS
 
 g.next_event()
-assert g.selected_event().title == "Fair City" and g["ev_rec"].text == "Will record"
+assert g.selected_event().title == "Fair City" and g["rec_pill"].visible
+assert g["rec_pill"].instance.pixmap.endswith("rec_pill_96x40.png")
 icons = [entry for entry in g["grid"].list[0][1:] if "png" in entry]
-assert len(icons) == 1 and icons[0]["png"] == guide.rec_icon_path() and guide.rec_icon_path().endswith("rec_clock_26.png") and os.path.isfile(guide.rec_icon_path()), "Fair City gets the red clock"
+assert len(icons) == 1 and icons[0]["png"] == guide.rec_icon_path() and guide.rec_icon_path().endswith("icons/record_26.png") and os.path.isfile(guide.rec_icon_path()), "Fair City gets the red record mark"
 g.next_event()
 assert g.selected_event().title == "Prime Time"
 g.next_event()
@@ -561,6 +608,13 @@ assert converter.GullionServiceInfo("Icon:2").__class__ and serviceinfo.icon_row
 assert serviceinfo.icon_row("1:0:1:1:1:1:EEEE0000:0:0:0:", -1, "Old film. (R)") == ["repeat", "terrestrial"]
 for name in ("hd", "uhd", "subtitles", "audio_description", "sign_language", "repeat", "satellite", "terrestrial", "cable", "internet"):
 	assert os.path.isfile(ui_icons.icon_path(name)), ui_icons.icon_path(name)
+# The REC pill: only while this channel is being recorded, not any channel.
+timer = lambda ref, state: types.SimpleNamespace(state=state, service_ref=types.SimpleNamespace(ref=e2stubs.eServiceReference(ref)))
+assert converter.recording_now(saorview_hd, [timer(saorview_hd, 2)])
+assert not converter.recording_now(saorview_hd, [timer("1:0:19:5:1:1:11A0000:0:0:0:", 2)]), "another channel recording"
+assert not converter.recording_now(saorview_hd, [timer(saorview_hd, 0)]), "set to record later"
+assert not converter.recording_now(saorview_hd), "no box, no recordings"
+assert converter.GullionServiceInfo("IsRecording").poll_enabled
 print("converter ok")
 
 import skin  # noqa: E402  the stub
@@ -584,7 +638,10 @@ for widget in element.iter("widget"):
 	for convert in widget.iter("convert"):
 		assert convert.get("type") in known, convert.get("type")
 		if convert.get("type") == "GullionServiceInfo":
-			assert convert.text in ("Number", "Name", "NumberAndName", "Remaining") or convert.text.startswith("Icon:"), convert.text
+			assert convert.text in ("Number", "Name", "NumberAndName", "Remaining", "IsRecording") or convert.text.startswith("Icon:"), convert.text
+for widget in element.iter("widget"):
+	if widget.get("render") == "Pixmap":
+		assert os.path.isfile(widget.get("pixmap")), widget.get("pixmap")
 assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
 for name in ("NumberZap", "Volume"):
 	popup, path = skin.dom_screens[name]
@@ -1206,8 +1263,8 @@ scaled = scale.skin('<screen position="center,center" size="900,460"><widget nam
 assert scaled == '<screen position="center,center" size="600,307"><widget name="a" position="60,41" size="1160,1" font="Regular;20" itemHeight="50" /></screen>', scaled
 cell = guide._text(390, 0, 1350, 72, "Nationwide", 0, guide.theme.TEXT, guide.theme.CARD)
 assert cell["pos"] == (260, 0) and cell["size"] == (900, 48), "guide cells shrink with the skin"
-assert guide.rec_icon_path().endswith("rec_clock_17.png") and os.path.isfile(guide.rec_icon_path())
+assert guide.rec_icon_path().endswith("record_17.png") and os.path.isfile(guide.rec_icon_path())
 scale.set_factor(720 / 1920.0)
-assert guide.rec_icon_path().endswith("rec_clock_10.png")
+assert guide.rec_icon_path().endswith("record_10.png")
 scale.set_factor(1.0)
 print("skin sizes ok")

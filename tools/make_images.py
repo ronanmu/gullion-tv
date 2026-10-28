@@ -1,7 +1,7 @@
 """Generate the plugin's icons from Material Symbols, in the theme colours.
 
 	pip install pillow
-	MATERIAL=/path/to/symbols MDI=/path/to/mdi python3 tools/make_images.py   # writes plugin/GullionTV/images/
+	MATERIAL=/path/to/symbols MDI=/path/to/mdi REC_FONT=/path/to/OpenSans.ttf python3 tools/make_images.py
 """
 import os
 import sys
@@ -45,8 +45,31 @@ CARD_SIZES = (36, 48, 72, 144)
 # The colour-button hints: a filled circle in each key's colour, 24 px at 1920 wide.
 KEY_COLOURS = {"red": theme.KEY_RED, "green": theme.KEY_GREEN, "yellow": theme.KEY_YELLOW, "blue": theme.KEY_BLUE}
 KEY_SIZES = (12, 16, 24, 48)
-# A recording in the guide: a filled red clock, 26 px at 1920 wide (list cells can't scale pictures).
+# A recording in the guide: MDI's record-circle in red, 26 px at 1920 wide (list cells can't scale pictures).
 REC_SIZES = (10, 13, 17, 26, 52)
+
+
+# The REC pill: a red rounded bar with REC in bold white, 96x40 at 1920 wide. The text is part
+# of the picture so it's bold on any skin. REC_FONT is Open Sans from Google Fonts (SIL Open
+# Font License): https://github.com/google/fonts/tree/main/ofl/opensans, drawn at Bold.
+PILL = (96, 40)
+PILL_SCALES = (0.5, 2 / 3.0, 1, 2)
+
+
+def pills(out, font_path):
+	from PIL import ImageFont
+	for factor in PILL_SCALES:
+		w, h = int(round(PILL[0] * factor)), int(round(PILL[1] * factor))
+		image = Image.new("RGBA", (w * SUPERSAMPLE, h * SUPERSAMPLE), (0, 0, 0, 0))
+		draw = ImageDraw.Draw(image)
+		draw.rounded_rectangle((0, 0, w * SUPERSAMPLE - 1, h * SUPERSAMPLE - 1), h * SUPERSAMPLE // 2, fill=_rgba(theme.KEY_RED))
+		font = ImageFont.truetype(font_path, int(h * SUPERSAMPLE * 0.6))
+		if b"Bold" in (font.get_variation_names() if hasattr(font, "get_variation_names") else []):
+			font.set_variation_by_name("Bold")
+		draw.text((w * SUPERSAMPLE / 2.0, h * SUPERSAMPLE / 2.0), "REC", font=font, fill=(255, 255, 255, 255), anchor="mm")
+		path = os.path.join(out, "rec_pill_%dx%d.png" % (w, h))
+		image.resize((w, h), Image.LANCZOS).save(path)
+		print(path)
 
 
 def mdi_codepoints(css):
@@ -70,6 +93,14 @@ def mdi_icons(folder, out):
 				path = os.path.join(out, "%s%s_%d.png" % (name, suffix, size))
 				image.resize((size, size), Image.LANCZOS).save(path)
 				print(path)
+	for size in REC_SIZES:
+		big = size * SUPERSAMPLE
+		font = ImageFont.truetype(font_path, big)
+		image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["record-circle"]), font=font, fill=_rgba(theme.KEY_RED), anchor="mm")
+		path = os.path.join(out, "record_%d.png" % size)
+		image.resize((size, size), Image.LANCZOS).save(path)
+		print(path)
 
 
 def material_icons(folder, out):
@@ -106,12 +137,11 @@ def material_icons(folder, out):
 	for size in KEY_SIZES:
 		for name, colour in sorted(KEY_COLOURS.items()):
 			draw(os.path.join(out, "key_%s_%d.png" % (name, size)), "circle", size, colour, filled=True)
-	for size in REC_SIZES:
-		draw(os.path.join(OUT, "rec_clock_%d.png" % size), "schedule", size, theme.KEY_RED, filled=True)
 
 
 if __name__ == "__main__":
-	if not os.environ.get("MATERIAL") or not os.environ.get("MDI"):
-		sys.exit("Set MATERIAL and MDI to the folders holding the two icon fonts; see the notes above ICONS and MDI_CARD_ICONS.")
+	if not os.environ.get("MATERIAL") or not os.environ.get("MDI") or not os.environ.get("REC_FONT"):
+		sys.exit("Set MATERIAL and MDI to the icon font folders and REC_FONT to a bold font; see the notes above ICONS, MDI_CARD_ICONS and PILL.")
 	material_icons(os.environ["MATERIAL"], os.path.join(OUT, "icons"))
 	mdi_icons(os.environ["MDI"], os.path.join(OUT, "icons"))
+	pills(os.path.join(OUT, "icons"), os.environ["REC_FONT"])

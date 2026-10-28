@@ -14,7 +14,7 @@ except ImportError:
 	import xml.etree.ElementTree as ET
 
 from .. import theme
-from ..ui import scale
+from ..ui import icons, scale
 
 PLUGIN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL_Y = 810
@@ -76,7 +76,9 @@ SKIN = """
 		<convert type="GullionServiceInfo">Remaining</convert>
 	</widget>
 
-	<widget source="session.RecordState" render="FixedLabel" text="Recording" position="370,986" size="180,40" font="Regular;26" halign="center" valign="center" foregroundColor="%(text)s" backgroundColor="%(red)s" zPosition="2">
+	<!-- A red REC pill (REC is part of the picture) while this channel is being recorded. -->
+	<widget source="session.CurrentService" render="Pixmap" pixmap="%(rec_pill)s" position="370,986" size="96,40" alphatest="blend" zPosition="2">
+		<convert type="GullionServiceInfo">IsRecording</convert>
 		<convert type="ConditionalShowHide" />
 	</widget>
 	%(icons)s
@@ -90,7 +92,7 @@ SKIN = """
 	"panel_y": PANEL_Y, "panel_h": PANEL_H, "title_y": TITLE_Y, "white": "#00ffffff", "outline": "#00000000", "panel": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 	"divider": theme.DIVIDER, "accent": theme.ACCENT, "red": theme.KEY_RED,
 	"light": theme.CARD_SELECTED, "card": theme.CARD, "on_light": theme.TEXT_ON_SELECTED,
-	"icons": _icons_skin(), "signal_x": SIGNAL_X, "signal_text_x": SIGNAL_X + 114, "live": theme.LIVE,
+	"icons": _icons_skin(), "rec_pill": icons.rec_pill(), "signal_x": SIGNAL_X, "signal_text_x": SIGNAL_X + 114, "live": theme.LIVE,
 }
 
 # Typing a channel number on live TV. The widget names are the image's own:

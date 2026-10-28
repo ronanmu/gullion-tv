@@ -277,6 +277,9 @@ def resolve(el, state):
 	for kind, arg in converts:
 		if kind == "GullionServiceInfo":
 			c = converter.GullionServiceInfo(arg)
+			if arg == "IsRecording":
+				visible = state.get("recording", False)
+				continue
 			if arg.startswith("Icon:"):
 				# The banner's icon row: the programme's codes, then hd, then how it arrives.
 				names = serviceinfo.icon_row(state["ref"], state.get("height", 1080), state.get("description", ""))
@@ -365,6 +368,10 @@ def render(screen, base=None, state=None):
 				continue
 			if el.get("render") == "Picon":
 				draw_picon(draw, box, state["name"])
+				continue
+			if el.get("render") == "Pixmap":
+				picture = Image.open(el.get("pixmap")).convert("RGBA").resize((w, h), Image.LANCZOS)
+				image.paste(picture, box[:2], picture)
 				continue
 			if el.get("render") == "GullionIcon":
 				icon = Image.open(ui_icons.icon_path(text)).convert("RGBA").resize((w, h), Image.LANCZOS)

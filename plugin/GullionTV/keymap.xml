@@ -1,0 +1,6 @@
+<keymap>
+	<!-- STOP on live TV stops the channel's recording (Gullion TV's InfoBar actions, hook.py). -->
+	<map context="GullionLiveActions">
+		<key id="KEY_STOP" mapto="stop" flags="m" />
+	</map>
+</keymap>

@@ -55,13 +55,14 @@ Gullion TV style.
 - **TV Guide** (green): the selected channel's picon, programme details and the live picture on top, a day bar, and a two-hour grid of six
   channels. Arrows move, CH +/- pages, red/green jump a day, yellow switches channel list, blue returns to now.
   OK watches a programme that's on now, or offers to record a later one. REC records, INFO shows full details.
+  A programme that's recording or set to record has a red record mark in the grid and a REC pill in its details.
   Typing a channel number jumps to it. Subtitles, audio description, sign language and repeats are shown as icons.
   GUIDE, the arrows, TV and FAV open this guide from live TV, in place of the stock guide and channel list.
   Each time it opens, the guide checks the recording drive (mounted, writable, at least 2 GB free). If the box
   can't record, the REC hint and record options go and REC explains why; under 10 GB it warns that space is low.
 - **Channel banner** over live TV: the channel number and name above it in large outlined text, the picon,
   a large Now line and Next with time left, a
-  Recording badge while anything is recording, and a row of Material Symbols icons (subtitles, audio description,
+  red REC pill while this channel is being recorded, and a row of Material Symbols icons (subtitles, audio description,
   sign language and repeat from the listing; HD or 4K; satellite, terrestrial, cable or internet) beside a signal
   gauge. Channel numbers match the box's own, including Freesat's (BBC One NI HD is 101).
   It replaces the skin's own banner, so it still appears on every channel change and hides as usual.
@@ -70,6 +71,10 @@ Gullion TV style.
 - **Sound and subtitles** (YELLOW, AUDIO or SUBTITLE): the sound tracks (main sound, audio description) and
   subtitles (off, DVB, teletext) side by side; OK switches straight away.
 - Typing a number on live TV and the volume show Gullion TV's own pop-ups.
+- **REC** on live TV records the programme on now until it ends, with no questions or "recording started"
+  pop-up (if the drive can record), then shows the banner with its REC pill. REC again asks whether to stop;
+  STOP stops it straight away.
+  Pressed again on a channel that's recording, it asks whether to stop.
 - **Webcams** (blue): tiles for each camera in `/etc/enigma2/gulliontv/webcams.yaml`, with a picture, its name and
   whether it's live (and, for churchservices.tv, the next service). OK plays it full screen; BACK puts the previous
   channel back. Pages are checked in the background, so the grid shows straight away.
@@ -96,8 +101,9 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   weather/
     forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours
-  images/                rec_clock (a Material clock) marks recordings in the guide; weather/ holds the Yr weather icons;
-                         icons/ holds Material Symbols and Material Design Icons (see icons/NOTICE)
+  images/                weather/ holds the Yr weather icons;
+                         icons/ holds Material Symbols and Material Design Icons, including the red
+                         record mark in the guide (see icons/NOTICE)
   ui/                    shared building blocks
     tiles.py             picture tiles for Recordings, All recordings and the Plex views
     popups.py            themed choice and programme-details pop-ups

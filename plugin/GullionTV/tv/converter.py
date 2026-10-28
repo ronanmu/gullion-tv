@@ -6,6 +6,7 @@ Components.Converter.GullionServiceInfo by infobar.install().
 	Name       (session.CurrentService) channel name alone: OpenATV 7.x's ServiceName
 	                                    Name puts the channel number in front
 	NumberAndName (session.CurrentService) "101   BBC One NI HD"
+	IsRecording (session.CurrentService) boolean: this channel is being recorded now
 	Remaining  (session.Event_Now)      "18 min left"
 	Icon:N     (session.Event_Now)      the Nth icon from the right of the programme's
 	                                    row (access codes, hd/uhd, delivery), for the
@@ -37,6 +38,27 @@ def _playing():
 	return info.getInfoString(iServiceInformation.sServiceref), info.getInfo(iServiceInformation.sVideoHeight)
 
 
+def recording_now(ref, timers=None):
+	"""Is a recording running on this channel? (Not just anywhere on the box.)"""
+	if not ref:
+		return False
+	if timers is None:
+		try:
+			import NavigationInstance
+			timers = NavigationInstance.instance.RecordTimer.timer_list
+		except Exception:
+			return False
+	from enigma import eServiceReference
+	wanted = eServiceReference(ref).toCompareString()
+	for timer in timers:
+		if getattr(timer, "state", None) == _RUNNING and timer.service_ref.ref.toCompareString() == wanted:
+			return True
+	return False
+
+
+_RUNNING = 2  # TimerEntry.StateRunning
+
+
 class GullionServiceInfo(Poll, Converter, object):
 	def __init__(self, type):
 		Converter.__init__(self, type)
@@ -44,6 +66,10 @@ class GullionServiceInfo(Poll, Converter, object):
 		self.type = type
 		if type == "Remaining":
 			self.poll_interval = 30000
+			self.poll_enabled = True
+		elif type == "IsRecording":
+			# Recordings start and stop without the channel changing.
+			self.poll_interval = 5000
 			self.poll_enabled = True
 		elif type.startswith("Icon:"):
 			# HD is only certain once the picture is decoding, a moment after the event arrives.
@@ -101,6 +127,14 @@ class GullionServiceInfo(Poll, Converter, object):
 		return str(number) if number else ""
 
 	text = property(getText)
+
+	@cached
+	def getBoolean(self):
+		if self.type == "IsRecording":
+			return recording_now(self.service_details()[0])
+		return False
+
+	boolean = property(getBoolean)
 
 	def changed(self, what):
 		if what[0] == self.CHANGED_SPECIFIC:

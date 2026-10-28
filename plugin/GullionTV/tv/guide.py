@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """TV guide: programme details and live picture on top, a day bar, and a
 two-hour grid of six channels underneath."""
-import os
 import time
 
 from enigma import eListboxPythonMultiContent, ePoint, eRect, eTimer, gFont, gRGB, RT_HALIGN_LEFT, RT_VALIGN_CENTER
@@ -35,15 +34,13 @@ PX_PER_SECOND = CELLS_W / float(WINDOW)
 RULER_Y = 512
 NOW_Y = 542  # the now marker sits under the ruler times, clear of programme titles
 DAY_X, DAY_W = 640, 150
-IMAGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images")
 ICON = 26
 REC_ICON_SIZES = (10, 13, 17, 26, 52)  # made by tools/make_images.py, one per common skin size
 
 
 def rec_icon_path():
-	"""The red clock drawn at the size nearest the skin's: list cells can't scale a picture."""
-	size = min(REC_ICON_SIZES, key=lambda candidate: abs(candidate - scale.px(ICON)))
-	return os.path.join(IMAGES, "rec_clock_%d.png" % size)
+	"""The red record mark at the size nearest the skin's: list cells can't scale a picture."""
+	return icons.icon_path("record", ICON, REC_ICON_SIZES)
 
 _FLAGS = RT_HALIGN_LEFT | RT_VALIGN_CENTER
 
@@ -109,7 +106,7 @@ class Guide(Screen):
 		<widget name="ev_title" position="340,146" size="760,60" font="Regular;46" noWrap="1" foregroundColor="%(text)s" transparent="1" />
 		%(code_icons)s
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
-		<widget name="ev_rec" position="1000,212" size="320,42" font="Regular;30" halign="right" foregroundColor="%(red)s" transparent="1" />
+		<widget name="rec_pill" position="1224,213" size="96,40" alphatest="blend" zPosition="2" />
 		<widget name="ev_desc" position="340,264" size="980,110" font="Regular;28" foregroundColor="%(text)s" transparent="1" />
 		%(key_hints)s
 
@@ -141,7 +138,7 @@ class Guide(Screen):
 		Screen.__init__(self, session)
 		self.setTitle("TV Guide")
 
-		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_rec", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
+		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
 			self[name] = Label()
 		for i in range(CODE_ICONS):
 			self["code%d" % i] = Pixmap()
@@ -149,6 +146,7 @@ class Guide(Screen):
 			for name in ("hint%d_edge", "hint%d_key", "hint%d"):
 				self[name % i] = Label()
 		self["picon"] = Pixmap()
+		self["rec_pill"] = Pixmap()  # REC is drawn into the picture, in bold
 		self.rec_icon = LoadPixmap(rec_icon_path(), cached=True)
 		self.picons = tiles.Pictures(220, 132)
 		for i in range(DAYS):
@@ -557,8 +555,9 @@ class Guide(Screen):
 		self.draw_picon(channel)
 		if event is None:
 			self["ev_title"].setText("No programme information" if channel else "No channels yet")
-			for name in ("ev_time", "ev_rec", "ev_desc", "hints"):
+			for name in ("ev_time", "ev_desc", "hints"):
 				self[name].setText("")
+			self.draw_rec(False)
 			self.draw_hints([])
 			self.draw_codes("")
 			return
@@ -568,10 +567,7 @@ class Guide(Screen):
 		self["ev_desc"].setText(serviceinfo.split_codes(event.description)[0])
 		self.draw_codes(event.description)
 		airing = event.airing(self.now)
-		if not event.over(self.now) and epg.find_timer(self.session, channel.ref, event):
-			self["ev_rec"].setText("Recording" if airing else "Will record")
-		else:
-			self["ev_rec"].setText("")
+		self.draw_rec(not event.over(self.now) and bool(epg.find_timer(self.session, channel.ref, event)))
 		able = recordings.can_record(self.storage) and not event.over(self.now)
 		hints = [("OK", "Watch")] if airing else ([("OK", "Record options")] if able else [])
 		if able:
@@ -579,6 +575,16 @@ class Guide(Screen):
 		hints.append(("INFO", "More details"))
 		self["hints"].setText("          ".join("%s  %s" % hint for hint in hints))
 		self.draw_hints(hints)
+
+	def draw_rec(self, recording):
+		"""A red REC pill for a programme that's recording or set to record."""
+		pill = self["rec_pill"]
+		if recording and pill.instance is not None:
+			pill.instance.setPixmap(LoadPixmap(icons.rec_pill(), cached=True))
+		if recording:
+			pill.show()
+		else:
+			pill.hide()
 
 	def draw_codes(self, description):
 		"""Packed from the right, in the broadcaster's order."""
