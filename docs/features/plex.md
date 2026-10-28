@@ -2,8 +2,9 @@
 
 [Documentation](../README.md) › Plex
 
-The YELLOW card on Home is called Media. It combines recorded TV with Plex movies and TV shows when Tech Support
-has [set up Plex](../setup/plex-setup.md). Without Plex, the same screen still shows recorded TV.
+The experimental Media screen combines recorded TV with Plex movies and TV shows when Tech Support has
+[set up Plex](../setup/plex-setup.md). The active Home screen opens the dedicated Recordings view instead; the
+experimental design is preserved in the `experimental-media-design` Git tag.
 
 ## Media
 

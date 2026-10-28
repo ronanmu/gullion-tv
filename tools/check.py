@@ -260,12 +260,7 @@ assert session.opened[-1] == ("TechSupportPin",)
 screen.open_item(1)
 assert session.opened[-1] == ("Guide",)
 screen.open_item(2)
-assert session.opened[-1] == ("WatchAgain",), "Media opens the same screen without Plex"
-original_load = home.plex.load_settings
-home.plex.load_settings = lambda path=None: sample_plex.configured_settings()
-screen.open_item(2)
-assert session.opened[-1] == ("WatchAgain",), "with Plex, Watch again has its rows"
-home.plex.load_settings = original_load
+assert session.opened[-1] == ("Recordings",), "the YELLOW card opens the full recorded TV list"
 screen.open_item(0)
 assert screen.closed[0] == "tv" and screen.closed[1] is screen.opened_on
 assert [card[2] for card in home.CARDS] == ["red", "green", "yellow", "blue"], "cards follow the remote's colour order"
@@ -298,7 +293,7 @@ assert [(c.name, c.number) for _, _, channels in numbered for c in channels] == 
 for title, subtitle, colour, icon in home.CARDS:
 	for name in (icon, icon + "_on_light"):
 		assert os.path.isfile(ui_icons.card_icon(name)), name
-assert [card[0] for card in home.CARDS] == ["Live TV", "TV Guide", "Media", "Webcams"]
+assert [card[0] for card in home.CARDS] == ["Live TV", "TV Guide", "Recordings", "Webcams"]
 for el in ET.fromstring(home.GullionHome.skin).iter("ePixmap"):
 	assert os.path.isfile(el.get("pixmap")), el.get("pixmap")
 screen.paint_selection()

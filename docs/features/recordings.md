@@ -2,8 +2,8 @@
 
 [Documentation](../README.md) › Recordings
 
-The YELLOW Media card on Home opens the [Media screen](plex.md). MENU from its All or Recorded TV filter opens
-this full recording list. Live TV stops while the list is open and comes back on the way out.
+The YELLOW Recordings card on Home opens this full recording list directly. Live TV stops while the list is open
+and comes back on the way out.
 
 ![Recordings](../images/22-recordings.png)
 

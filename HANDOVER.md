@@ -1,15 +1,17 @@
 # Handover: Gullion TV
 
-This file describes the working tree based on `a4f3ce8` ("chore: prepare AI development handover"), plus the
-uncommitted Recordings deletion reliability, TV Guide navigation/layout and recording playback changes of 28 October 2026. Read [AGENTS.md](AGENTS.md) for how to
-work on the code, and [docs/](docs/README.md) for what each screen looks like and does. The working tree was
+This file describes the working tree after `37fa30f` ("Add experimental unified Media design") and the following
+restoration of the dedicated Recordings route. The experimental combined screen is preserved by the
+`experimental-media-design` tag. Read [AGENTS.md](AGENTS.md) for how to work on the code, and
+[docs/](docs/README.md) for what each screen looks like and does. The experimental tree was
 deployed to the GigaBlue on 28 October 2026 after the owner said it was available; only compilation, restart and
 post-restart live-TV banner screenshots have been checked so far. The latest deployment at 16:41 includes the
 playback and Recordings refinements described below; the 16:52 follow-up adds the compact transport layout and
 revised Sort behaviour, and the 17:10 deployment adds silent resume, overlay edge navigation and the recorded
 date/time label. The 22:09 deployment adds the unified Media screen and was opened with real recording and Plex data;
 the 22:24 follow-up adds the padded, three-wide Media layout and six-item horizontal rows. The 22:50 deployment
-replaces that with four landscape Continue watching cards and five portrait Recently added cards.
+replaces that with four landscape Continue watching cards and five portrait Recently added cards. The current
+local tree restores the YELLOW Home card to the dedicated Recordings screen and has not yet been deployed.
 
 **Keep this file current.** Whenever you complete a significant development milestone, update this file in the
 same commit (or the one straight after):
@@ -28,7 +30,7 @@ the box, so someone who just wants to watch TV never meets the box's technical m
 viewer, but suits anyone who finds set-top box menus hard going.
 
 The UX principles, which every change so far has followed:
-- **Four things on Home**, in the remote's colour order: Live TV (RED), TV Guide (GREEN), Media (YELLOW),
+- **Four things on Home**, in the remote's colour order: Live TV (RED), TV Guide (GREEN), Recordings (YELLOW),
   Webcams (BLUE). Each colour button opens its card directly.
 - **Large, high-contrast text and plain English.** No jargon: "TV Guide", not EPG; "channel list", not bouquet;
   "Tech Support", not admin. Pop-ups ask simple questions with at most three options.
@@ -65,7 +67,7 @@ offline checks (section 7).
 | Safe recording deletion: active-timer guard, background moves, separate recycle-bin folders, rollback and failure messages | Offline checks only, 28 October 2026; not deployed |
 | Gullion recording playback panel: title/description, scrub-able progress, icon-only pause/play and 30-second skips, conditional subtitles, auto-hide | Latest refinements have offline checks and renders only, 28 October 2026; the earlier panel was deployed but never driven on the box |
 | Recording frames via ffmpeg, now 768×432 (older 328×184 ones remade) | Offline checks only for the new size. Whether ffmpeg is installed on the GigaBlue is not recorded |
-| Media screen: All, Recorded TV, Movies on Plex and TV Shows on Plex filters over Continue watching and Recently added | Tried on the GigaBlue with real recording and Plex data, 28 October 2026 |
+| Experimental Media screen: All, Recorded TV, Movies on Plex and TV Shows on Plex | Preserved by `experimental-media-design`; tried on the GigaBlue with real data, 28 October 2026 |
 | Plex: linking, Home user, server choice, libraries, Films and TV programmes poster views | Offline checks against sample Plex replies only. No record of testing against a real Plex server |
 | Plex playback, opening a film or programme | **Not implemented** (shows "Playing from Plex arrives in the next update") |
 | Formuler F1 (OpenATV 6.4, Python 2.7) | Was the first test box. **Not tried since OpenATV 7.x support was added (`752022c`)**, so every later feature is untested on 6.4 |
@@ -117,8 +119,8 @@ can use them like built-in ones.
 | `setup.py` | `GullionTVSetup`, the Tech Support settings screen (BLUE: Plex setup) |
 | `hook.py` | all the key redirections, the instant-record logic, STOP key, quieting the "recording started" pop-up |
 | `lock.py` | the PIN gate |
-| `home.py` | `GullionHome`; `CARDS`; opens the unified `WatchAgain` Media screen |
-| `watchagain.py` | `WatchAgain` (the Media screen), four filters, two rows, `recording_tile`, `plex_tile` |
+| `home.py` | `GullionHome`; `CARDS`; opens the dedicated `Recordings` screen from YELLOW |
+| `watchagain.py` | experimental `WatchAgain` Media screen preserved by the tag; four filters and two rows |
 | `recordings/screen.py` | `Recordings` screen, `play_recording` (opens the Gullion recording player), `make_frames`, `read_recordings` |
 | `recordings/player.py` | `RecordingPlayer`, a skinned stock `MoviePlayer` subclass: transport controls, progress timer, subtitles and overlay lifecycle |
 | `recordings/store.py` | reads `.ts.meta` / `.ts.cuts`, `Recording`, sizes, sorting, drive checks, `forget_position`, `move_to_trash` |
@@ -238,6 +240,10 @@ Driving the box remotely for testing uses OpenWebif:
 ## 7. Test results at handover
 
 Latest milestone, 28 October 2026:
+
+- Committed the unified Media experiment as `37fa30f` and tagged it `experimental-media-design`. The following
+  local change restores the Home card name to Recordings and makes YELLOW open the dedicated list shown in
+  `22-recordings.png`. This restoration has offline checks and a render only and has not yet been deployed.
 
 - Aligned Media to the TV Guide/Webcams 90 px side margins. Continue watching now shows four landscape cards and
   scrolls through at most eight; Recently added shows five portrait cards and scrolls through at most ten.

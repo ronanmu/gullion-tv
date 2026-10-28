@@ -13,7 +13,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   settings.py            the box settings: on/off, channel banner, Tech Support PIN
   setup.py               Tech Support settings screen
   home.py                the Home screen
-  watchagain.py          Media: two filtered rows of recorded TV and Plex
+  watchagain.py          experimental Media screen preserved by the experimental-media-design tag
   weather/
     forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours

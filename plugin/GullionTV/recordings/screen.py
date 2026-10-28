@@ -5,7 +5,7 @@ details of the one chosen beside it.
 	UP/DOWN  choose (CH+/- a page at a time)    OK    watch, or carry on from where it was left
 	BLUE     change the order                    RED   delete
 
-MENU from Media's All or Recorded TV filter opens this full list.
+The YELLOW Recordings card on Home opens this list.
 """
 import time
 

@@ -25,7 +25,7 @@ The text is purposefully large and high-contrast, and the wording is in plain-En
 | ------- | -------- | ----------- |
 | Live TV | RED button | Show broadcast channels setup to any tuners in the box |
 | TV Guide | GREEN button | View the EPG for any bouquets configured on the box |
-| Media | YELLOW button | Continue recorded TV, Plex movies and Plex TV shows, or browse recently added items |
+| Recordings | YELLOW button | Browse and play programmes recorded on this box |
 | Webcams | BLUE button | View any webcam or other livestreams setup |
 
 

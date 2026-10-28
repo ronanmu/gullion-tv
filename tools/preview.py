@@ -681,7 +681,6 @@ def main():
 
 	original_load = plex.load_settings
 	plex.load_settings = lambda path=None: sample_plex.configured_settings()
-	shots.append(("25-home-with-plex", render(home_screen(2))))
 	plex.load_settings = original_load
 
 	# Tech Support's Plex setup.

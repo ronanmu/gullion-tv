@@ -12,12 +12,11 @@ from Screens.Screen import Screen
 from Tools.LoadPixmap import LoadPixmap
 
 from . import theme
-from .plex import client as plex
+from .recordings.screen import Recordings
 from .tv.guide import Guide
 from .tv.serviceinfo import remaining
 from .ui.pin import PinChooser, TechSupportPin
 from .ui.placeholder import ComingSoon
-from .watchagain import WatchAgain
 from .ui.background import Background
 from .weather import forecast
 from .webcams.screens import WebcamList
@@ -29,7 +28,7 @@ from .ui import icons, live, scale, tiles
 CARDS = [
 	("Live TV", "Your channels", "red", "live_tv"),
 	("TV Guide", "Tonight and this week", "green", "tv_guide"),
-	("Media", "Recorded TV & Plex", "yellow", "recordings"),
+	("Recordings", "Recorded TV", "yellow", "recordings"),
 	("Webcams", "Live cameras", "blue", "webcams"),
 ]
 SETTINGS = len(CARDS)
@@ -171,7 +170,7 @@ class GullionHome(Screen):
 		elif index == 1:
 			self.session.openWithCallback(self.guide_closed, Guide)
 		elif index == 2:
-			self.session.open(WatchAgain)
+			self.session.open(Recordings)
 		elif index == 3:
 			self.session.open(WebcamList)
 		elif index == SETTINGS:
