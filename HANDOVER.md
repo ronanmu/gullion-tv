@@ -10,8 +10,8 @@ playback and Recordings refinements described below; the 16:52 follow-up adds th
 revised Sort behaviour, and the 17:10 deployment adds silent resume, overlay edge navigation and the recorded
 date/time label. The 22:09 deployment adds the unified Media screen and was opened with real recording and Plex data;
 the 22:24 follow-up adds the padded, three-wide Media layout and six-item horizontal rows. The 22:50 deployment
-replaces that with four landscape Continue watching cards and five portrait Recently added cards. The current
-local tree restores the YELLOW Home card to the dedicated Recordings screen and has not yet been deployed.
+replaces that with four landscape Continue watching cards and five portrait Recently added cards. The 23:01
+deployment restores the YELLOW Home card to the dedicated Recordings screen.
 
 **Keep this file current.** Whenever you complete a significant development milestone, update this file in the
 same commit (or the one straight after):
@@ -63,7 +63,7 @@ offline checks (section 7).
 | GUIDE, arrows, TV, FAV open Gullion TV's guide instead of the stock guide and channel list | Tried on the GigaBlue |
 | REC on live TV: records now until the programme ends, no questions, no "recording started" pop-up; REC again asks Stop/Keep; STOP stops | Tried on the GigaBlue |
 | Webcams: grid, live status, churchservices.tv next service, player with LIVE marker, tile picture from a link or local file | Tried on the GigaBlue |
-| **Recordings screen** (list plus large details, file size, status, sort, MENU options, delete to recycle bin) | **Offline checks and renders only. Never run on a box.** Added in `6c032df` |
+| **Recordings screen** (list plus large details, file size, status, sort, MENU options, delete to recycle bin) | Opened with real recordings on the GigaBlue, 28 October 2026; playback and deletion were not driven |
 | Safe recording deletion: active-timer guard, background moves, separate recycle-bin folders, rollback and failure messages | Offline checks only, 28 October 2026; not deployed |
 | Gullion recording playback panel: title/description, scrub-able progress, icon-only pause/play and 30-second skips, conditional subtitles, auto-hide | Latest refinements have offline checks and renders only, 28 October 2026; the earlier panel was deployed but never driven on the box |
 | Recording frames via ffmpeg, now 768×432 (older 328×184 ones remade) | Offline checks only for the new size. Whether ffmpeg is installed on the GigaBlue is not recorded |
@@ -243,7 +243,7 @@ Latest milestone, 28 October 2026:
 
 - Committed the unified Media experiment as `37fa30f` and tagged it `experimental-media-design`. The following
   local change restores the Home card name to Recordings and makes YELLOW open the dedicated list shown in
-  `22-recordings.png`. This restoration has offline checks and a render only and has not yet been deployed.
+  `22-recordings.png`. Deployed at 23:01 and confirmed with 25 real recordings on the GigaBlue.
 
 - Aligned Media to the TV Guide/Webcams 90 px side margins. Continue watching now shows four landscape cards and
   scrolls through at most eight; Recently added shows five portrait cards and scrolls through at most ten.
@@ -254,6 +254,10 @@ Latest milestone, 28 October 2026:
 
 Deployed on 28 October 2026 to the GigaBlue UHD Quad 4K at the owner's supplied address:
 
+- At 23:01, deployed commit `1e8d920`. Box compilation, install, retained configuration, enigma2 restart and the
+  post-restart screenshot succeeded (`screenshots/20261028-230113.png`, gitignored). YELLOW from Home opened the
+  dedicated Recordings screen with 25 real programmes, picons and the selected programme's detail panel. No
+  recording was played, sorted or deleted during this route/layout check.
 - At 22:50, deployed the four-landscape/five-portrait Media layout. Box compilation, install, retained configuration,
   enigma2 restart and the post-restart screenshot succeeded (`screenshots/20261028-225055.png`, gitignored). The
   real Media screen was then captured with four Continue watching cards and five Recently added cards; recording
