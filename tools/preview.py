@@ -6,7 +6,7 @@ the stub enigma2 modules, and draws the result at 1920x1080. Fonts and the
 live TV picture are approximations; use scripts/deploy.sh for the real thing.
 
 	pip install pillow
-	python3 tools/preview.py            # writes screenshots/samples/*.png
+	python3 tools/preview.py            # writes docs/images/*.png
 """
 import os
 import time
@@ -23,8 +23,9 @@ import sample_webcams
 
 e2stubs.install()
 from GullionTV import home, watchagain  # noqa: E402
+from GullionTV.recordings import screen as recscreen  # noqa: E402
 from GullionTV.plex import client as plex, library as plexlibrary, setup as plexsetup  # noqa: E402
-from GullionTV.tv import converter, epg, guide, infobar, picon, serviceinfo  # noqa: E402
+from GullionTV.tv import converter, epg, guide, infobar, nowinfo, picon, serviceinfo, soundsubs  # noqa: E402
 from GullionTV.ui import icons as ui_icons, pin, placeholder, popups  # noqa: E402
 from GullionTV.webcams import screens as webcams, sources  # noqa: E402
 from GullionTV.weather import forecast  # noqa: E402
@@ -56,7 +57,7 @@ def sample_picon(ref):
 picon.picon_path = sample_picon
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-OUT = os.path.join(ROOT, "screenshots", "samples")
+OUT = os.path.join(ROOT, "docs", "images")
 WIDTH, HEIGHT = 1920, 1080
 FONT_FILE = "/System/Library/Fonts/HelveticaNeue.ttc"
 
@@ -329,11 +330,15 @@ def render(screen, base=None, state=None):
 
 	elements = sorted(list(root), key=lambda el: int(el.get("zPosition", "0")))
 	for el in elements:
-		if el.tag not in ("eLabel", "widget") or el.get("position") is None:
+		if el.tag not in ("eLabel", "widget", "ePixmap") or el.get("position") is None:
 			continue
 		w, h = pair(el.get("size"), size)
 		x, y = pair(el.get("position"), size, (w, h))
 		box = (origin[0] + x, origin[1] + y, w, h)
+		if el.tag == "ePixmap":
+			icon = Image.open(el.get("pixmap")).convert("RGBA").resize((w, h), Image.LANCZOS)
+			image.paste(icon, box[:2], icon)
+			continue
 		widget = screen.get(el.get("name")) if el.get("name") else None
 		instance = widget.instance if widget is not None else None
 		if widget is not None and not getattr(widget, "visible", True):
@@ -493,6 +498,42 @@ def main():
 	for name, state in banners:
 		shots.append((name, render(Banner(), tv, state)))
 
+	# INFO (or OK twice) on live TV, with a satellite tuner's details.
+	status = {"tuner_signal_quality": 58000, "tuner_signal_quality_db": 1240, "tuner_signal_power": 47000,
+		"tuner_bit_error_rate": 0, "tuner_number": 0}
+	transponder = {"tuner_type": "DVB-S", "frequency": 10773000, "polarization": 0, "symbol_rate": 22000000}
+	frontend = e2stubs.types.SimpleNamespace(getFrontendStatus=lambda: status, getTransponderData=lambda original: transponder)
+	info_session = e2stubs.fake_session()
+	service = info_session.nav.getCurrentService()
+	service.frontendInfo = lambda: frontend
+	info = nowinfo.ChannelInfo(info_session)
+	info.ref = epg.channel_lists()[0][2][0].ref
+	info.layout()
+	info.draw_icons("The stories that matter from around the country. (HD, S, AD)")
+	shots.append(("15b-whats-on", render(info, tv)))
+
+	# YELLOW on live TV: sound tracks and subtitles.
+	tracks = [("eng", "MPEG"), ("NAR", "MPEG"), ("eng", "AC3")]
+	audio = e2stubs.types.SimpleNamespace(getNumberOfTracks=lambda: len(tracks), getCurrentTrack=lambda: 0,
+		getTrackInfo=lambda i: e2stubs.types.SimpleNamespace(getLanguage=lambda: tracks[i][0], getDescription=lambda: tracks[i][1]))
+	sound_session = e2stubs.fake_session()
+	sound_session.nav.getCurrentService().audioTracks = lambda: audio
+	subtitles = [(0, 1234, 0, 0, "eng"), (1, 0, 888, 8, "eng")]
+	watching = e2stubs.types.SimpleNamespace(selected_subtitle=None,
+		getCurrentServiceSubtitle=lambda: e2stubs.types.SimpleNamespace(getSubtitleList=lambda: subtitles))
+	sound = soundsubs.SoundAndSubtitles(sound_session, watching)
+	sound.layout()
+	shots.append(("15c-sound-and-subtitles", render(sound, tv)))
+
+	# Typing a channel number.
+	class Popup(dict):
+		def __init__(self, skin, **texts):
+			dict.__init__(self)
+			self.skin = skin
+			for name, text in texts.items():
+				self[name] = e2stubs.Widget(text)
+	shots.append(("15d-channel-number", render(Popup(infobar.NUMBER_ZAP, number="101", servicename="BBC One NI HD"), tv)))
+
 	sample_webcams.PICTURES.update({
 		"https://cdn.example/live/Uploads/ProfileImages/stmalachys.jpeg": picture_bytes("church"),
 		"https://www.churchservices.tv/wp-content/uploads/cathedral-225x300.jpg": picture_bytes("cathedral", (225, 300)),
@@ -538,7 +579,7 @@ def main():
 	watchagain.recordings.DEFAULT_FOLDER = folder
 	# As if ffmpeg had already made frames for the three newest recordings.
 	for recording, kind in zip(watchagain.recordings.list_recordings(folder)[:3], ("studio", "kitchen", "street")):
-		scene(kind, 328, 184).save(recording.path + ".jpg", quality=88)
+		scene(kind, 768, 432).save(recording.path + ".jpg", quality=88)
 	plex.http_request = sample_plex.FakePlex("home")
 	titles = {}
 	for item in (sample_plex.CONTINUE + sample_plex.RECENT_FILMS + sample_plex.RECENT_TV
@@ -575,22 +616,29 @@ def main():
 	again.move_across(2)
 	shots.append(("21-watch-again-browse", render(again)))
 
-	plain = watchagain.WatchAgain(session, {})
-	plain.layout()
-	plain.background.wait()
-	plain.paint()
-	shots.append(("22-watch-again-without-plex", render(plain)))
-
-	everything = watchagain.AllRecordings(session)
-	everything.layout()
-	everything.background.wait()
-	everything.move(1)
-	grid_shot = render(everything)
-	shots.append(("23-all-recordings", grid_shot))
-	ask = popups.GullionChoice(session, "Delete MasterChef?", [("Delete", "delete"), ("Keep it", None)],
+	# Recordings: what Watch again opens without Plex.
+	listing = recscreen.Recordings(session)
+	listing.layout()
+	listing.background.wait()
+	listing_shot = render(listing)
+	shots.append(("22-recordings", listing_shot))
+	options = popups.GullionChoice(session, "Fair City", [("Watch from the start", "start"), ("Delete", "delete"), ("Cancel", None)],
+		"%s  ·  %s" % (recscreen.short_when(listing.chosen()), watchagain.recordings.file_size(listing.chosen().size)))
+	options.layout()
+	shots.append(("22b-recordings-options", render(options, listing_shot)))
+	session.nav.RecordTimer = e2stubs.types.SimpleNamespace(timer_list=[e2stubs.types.SimpleNamespace(state=2, Filename=listing.recordings[1].path[:-3])])
+	listing.move(1)
+	shots.append(("22c-recordings-recording-now", render(listing)))
+	del session.nav.RecordTimer
+	listing.move(2)
+	listing.change_order()
+	listing.change_order()
+	no_picture = render(listing)
+	shots.append(("23-recordings-a-to-z-no-picture", no_picture))
+	ask = popups.GullionChoice(session, "Delete %s?" % listing.chosen().title, [("Delete", "delete"), ("Keep it", None)],
 		"It goes to the recycle bin, so Tech Support can bring it back.")
 	ask.layout()
-	shots.append(("24-delete-recording", render(ask, grid_shot)))
+	shots.append(("24-delete-recording", render(ask, no_picture)))
 
 	original_load = plex.load_settings
 	plex.load_settings = lambda path=None: sample_plex.configured_settings()

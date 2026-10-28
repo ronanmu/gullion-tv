@@ -1,221 +1,102 @@
 # Gullion TV
 
-A simpler, calmer way to use an enigma2 satellite and terrestrial box. Gullion TV puts a large-text home screen in
-front of OpenATV 6.4, so someone who just wants to watch TV never meets the box's technical menus.
+A simpler, calmer way to use an Enigma2 Linux-based satellite and terrestrial box. Gullion TV puts a large-text home screen in front of the popular [OpenATV](https://opena.tv) Engima2 distribution, so someone who just wants to watch TV never meets the box's technical menus.
 
-![The Gullion TV home screen](screenshots/samples/01-home-watch-tv.png)
+![The Gullion TV home screen](docs/images/01-home-watch-tv.png)
 
 ## Why it exists
 
-Gullion TV was made for an older relative, though it suits anyone who finds set-top box menus hard going.
+Gullion TV was made to be simple and user friendly, though it suits anyone who finds set-top box menus hard going.
 
-- **A simpler interface.** One home screen with four choices (Live TV, TV Guide, Recordings and Webcams), each on
-  the matching red, green, yellow or blue button of the remote. The text is large and high-contrast, and the wording
-  is plain ("18 min left", not "EPG" or "bouquet"). BACK always goes back one step.
-- **One channel list for Saorview and Freesat.** Residents of Ireland/Northern Ireland who wish to watch FTA TV from both the UK and Ireland      regularly have a poor experience in switching between channel listings and sourcing consistent programme guides. Enigma2 boxes, given their flexiblity are one of the better ways to combine both Irish terrestrial (Saorview, DVB-T2) and UK satellite (Freesat, DVB-S2) channels in a not entirely cumbersome way, but this plugin will support any DVB-T or DVB-S service setup on the box and defined as a bouquet. Tech Support sets up a single "My channels" list that mixes the channels actually watched, numbered from 1. The full Saorview and Freesat lists are still there, a press of YELLOW away in the guide, and the guide and the channel banner number channels the same way.
-- **Local webcams and church services.** Live streams from [mcn.live](https://mvn.live), [churchservices.tv](https://www.churchservices.tv) or any camera link, listed in a simple file, with whether each is live and when the next service is.
-- **Plex.** Films and TV programmes from a Plex server at home or elsewhere sit alongside recorded TV in Watch
-  again, continuing from where you left off.
-- **Tech Support keeps the technical side.** Tuning, channel lists, recording settings and Plex sign-in are done
-  once through the stock OpenATV menus, behind a Tech Support PIN, and stay out of the way afterwards.
+| Goal | Description |
+| ---- | ----------- |
+| A simpler interface | Home screen with four choices for the most frequently used features |
+| Single unified channel list | Just like in the good old days, view all broadcast channels in a single list |
+| Integrate webcams | Permit the easy viewing of local or community webcam feeds |
+| Restricted default menus | PIN-protected access to stock menus on the image, preventing accidental 'breaking' of features |
+
+### A simpler interface
+
+Modern smart TVs and streaming services can have an overwhelming list of apps, features and ads, making it hard to 'just see the news' on old-style linear broadcast TV services. Gullion TV makes it easy to access four regularly used common features as well as a prominent preview of the last viewed channel and it's now/next EPG info. The home screen also displays the date, the time, and a weather forecast, if configured.
+
+The text is purposefully large and high-contrast, and the wording is in plain-English, with no jargon, e.g. does not refer to 'EPG' or 'bouquets'. 
+
+| Feature | Shortcut | Description |
+| ------- | -------- | ----------- |
+| Live TV | RED button | Show broadcast channels setup to any tuners in the box |
+| TV Guide | GREEN button | View the EPG for any bouquets configured on the box |
+| Recordings | YELLOW button | List any broadcasts recorded on the box, also Plex TV or Movie libraries, if configured |
+| Webcams | BLUE button | View any webcam or other livestreams setup |
+
+
+### Single unified channel list
+
+Television sets pre 'smart' TVs typically permitted the scan for any local terrestrial or satellite signals, and allowed users to order the channels received according to their own personal preference. Modern TVs are configured to a region when setup, meaning that any channel ordering is fixed to whatever that region expects. While this works for the majority of users, anyone attempting to receive channels from more than a single jurisdiction will have a random jumble of channels for any broadcasts received outside of their 'region'.  
+
+### Integrate webcams
+
+This feature allows the integration of some local or publically accessible web cam streams. These are provided via editing a configuration file locally on the box, and supports locating streams from [mcn.live](https://mcn.live), [churchservices.tv](https://www.churchservices.tv) or any camera link. 
+
+### Restricted default menu
+
+Enigma2 boxes are powerful and have an extensive range of features, the majority of which are not required in daily use, but it is easy to stumble into an advanced feature when carrying out basic actions. GullionTV prevents access to these advanced features via an administrator set PIN code, which stops unwanted or unncessary tinkering with the advanced features of the box.
 
 ## Status
 
-**This is early software with limited testing on a real set-top box.** It was designed for, and so far only tried
-on, a Formuler F1 (DVB-S2 plus a DVB-T2/C tuner) on OpenATV 6.4 with a 1080p TV. The offline checks in `tools/` run
-the plugin against stand-ins for enigma2, and the screenshots in this README are renders from those stand-ins, not
-captures from a box. Expect rough edges on other boxes, images and skins.
+**This is early beta software with limited testing on real set-top boxes.** 
+
+It has been tried on:
+
+| Box | Image | Python | Notes |
+|---|---|---|---|
+| GigaBlue UHD Quad 4K | OpenATV 7.6 | 3.13 | MetrixHD skin at Full HD (1920x1080); Astra 2 through a Unicable LNB |
+| Formuler F1 | OpenATV 6.4 | 2.7 | DVB-S2 plus a DVB-T2/C tuner, on a 1080p TV |
+
+The GigaBlue is the main test box and has had every feature to date. The Formuler hasn't been tried with the
+recent changes (the banner layout, Sound and subtitles, REC and STOP, and the Recordings screen), and the
+Recordings screen hasn't been tried on either box yet. The offline checks in `tools/` run the plugin against
+stand-ins for enigma2, and the screenshots in this README and the documentation are renders from those stand-ins, not captures from a
+box. Expect rough edges on other boxes, images and skins.
 
 Most of the design and code were written with [Claude](https://www.anthropic.com/claude), Anthropic's AI
 assistant, working from the owner's requirements and review.
 
-Still to come: opening a film or programme from Plex and playing it, and the box's recording player in the
-Gullion TV style.
+## To do
 
-## What you need
+- **Series link.** "Record series" in the TV Guide, for every upcoming episode of a programme on one channel
+  (Coronation Street on ITV1, say). enigma2 has no series link of its own, so this would create a rule for the
+  AutoTimer plugin (installed from the OpenATV feeds if it isn't already): the exact title only, one channel only
+  so +1 and regional versions aren't recorded too, and episodes already recorded or set to record skipped.
+  Freesat descriptions are sometimes missing or the same every week, so spotting repeats won't be perfect.
+  Recordings would list the series being recorded, with a way to stop one. Needs checking on a box for the
+  AutoTimer version.
+- Opening a film or programme from Plex and playing it.
+- The box's recording player in the Gullion TV style.
 
-- An enigma2 box on **OpenATV 6.4** (Python 2.7). Gullion TV is designed at 1920×1080 and scales to the skin's
-  own size, so it works with HD skins such as MetrixHD (1280×720) as well as full-HD and 4K ones.
-- **Optional:** a USB or eSATA drive for recordings; **ffmpeg** (`opkg install ffmpeg`) for recording pictures; a
-  **Plex** server with film and TV libraries. Streaming from a Plex server outside the home needs Plex Pass on the
-  server owner's account.
+## Documentation
 
-## What it does
+The [documentation](docs/README.md) shows each part of Gullion TV with pictures, and how to set it up:
 
-- MENU on the remote opens **Gullion TV** instead of the stock menu.
-- Home shows the date, a short weather report with a Yr weather icon ("8°  Light rain  ·  Tomorrow 14°") and the
-  clock, a live picture
-  of the current channel with now and next, and four cards:
-  Live TV (red), TV Guide (green), Recordings (yellow) and Webcams (blue), in remote order, each with a
-  Material icon and a coloured dot for its button. Live TV goes back to the channel that was on.
-  The matching colour button opens each card directly.
-- **Settings** (press down from the cards) asks for the Tech Support PIN, then opens the stock OpenATV menu.
-  The PIN also guards every other way into the stock settings and plugins: GREEN's plugin list, BLUE's
-  extensions, the channel list's edit menu and anything set up in Button setup.
-- **TV Guide** (green): the selected channel's picon, programme details and the live picture on top, a day bar, and a two-hour grid of six
-  channels. Arrows move, CH +/- pages, red/green jump a day, yellow switches channel list, blue returns to now.
-  OK watches a programme that's on now, or offers to record a later one. REC records, INFO shows full details.
-  A programme that's recording or set to record has a red record mark in the grid and a REC pill in its details.
-  Typing a channel number jumps to it. Subtitles, audio description, sign language and repeats are shown as icons.
-  GUIDE, the arrows, TV and FAV open this guide from live TV, in place of the stock guide and channel list.
-  Each time it opens, the guide checks the recording drive (mounted, writable, at least 2 GB free). If the box
-  can't record, the REC hint and record options go and REC explains why; under 10 GB it warns that space is low.
-- **Channel banner** over live TV: the channel number and name above it in large outlined text, the picon,
-  a large Now line and Next with time left, a
-  red REC pill while this channel is being recorded, and a row of Material Symbols icons (subtitles, audio description,
-  sign language and repeat from the listing; HD or 4K; satellite, terrestrial, cable or internet) beside a signal
-  gauge. Channel numbers match the box's own, including Freesat's (BBC One NI HD is 101).
-  It replaces the skin's own banner, so it still appears on every channel change and hides as usual.
-- **What's on** (INFO, or OK twice): the programme on now with its description and the next five, plus the
-  tuner's signal quality, SNR, power, errors and frequency.
-- **Sound and subtitles** (YELLOW, AUDIO or SUBTITLE): the sound tracks (main sound, audio description) and
-  subtitles (off, DVB, teletext) side by side; OK switches straight away.
-- Typing a number on live TV and the volume show Gullion TV's own pop-ups.
-- **REC** on live TV records the programme on now until it ends, with no questions or "recording started"
-  pop-up (if the drive can record), then shows the banner with its REC pill. REC again asks whether to stop;
-  STOP stops it straight away.
-  Pressed again on a channel that's recording, it asks whether to stop.
-- **Webcams** (blue): tiles for each camera in `/etc/enigma2/gulliontv/webcams.yaml`, with a picture, its name and
-  whether it's live (and, for churchservices.tv, the next service). OK plays it full screen; BACK puts the previous
-  channel back. Pages are checked in the background, so the grid shows straight away.
-- **Recordings** (yellow), subtitled "Recorded TV & Plex" once Plex is set up: Continue watching (Plex and
-  part-watched recordings, most recent first), Recently added to Plex, Recorded TV, then Browse: Films, TV
-  programmes and All recordings. Plex tiles carry a Plex badge and use landscape art (an episode's still, a film's
-  background), falling back to the poster at the left of the tile. Recordings show a frame from the recording with
-  the channel's picon in the corner (made with ffmpeg if it's installed), or the picon on its own. Recordings play
-  in the box's player; RED in All recordings moves one to the recycle bin.
-- **Films** and **TV programmes**: Plex posters, 16 a page, A to Z or newest first (GREEN), everything or unwatched
-  only (YELLOW), with Watched and "8 to watch" badges. Opening a film or programme, and playing from Plex, come next.
+| Using it | Setting it up |
+|---|---|
+| [Home](docs/features/home.md) | [Install](docs/setup/install.md) |
+| [Live TV](docs/features/live-tv.md): the banner, What's on, Sound and subtitles, recording | [Tech Support](docs/setup/tech-support.md): the PIN, settings, weather |
+| [TV Guide](docs/features/tv-guide.md) | [Webcams list](docs/setup/webcams-config.md) |
+| [Recordings](docs/features/recordings.md) | [Plex setup](docs/setup/plex-setup.md) |
+| [Webcams](docs/features/webcams.md) | [Development](docs/development.md): code layout, checks, screenshots |
+| [Plex](docs/features/plex.md) | |
 
-## Layout
+## Quick start
 
-```
-plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/Plugins/Extensions/GullionTV)
-  plugin.py              plugin descriptors: session-start hook and the Plugins menu entry
-  hook.py                redirects MENU, INFO, OK, YELLOW and the guide keys to Gullion TV's screens
-  lock.py                asks for the Tech Support PIN before any stock settings or plugin screen opens
-  settings.py            the box settings: on/off, channel banner, Tech Support PIN
-  setup.py               Tech Support settings screen
-  home.py                the Home screen
-  watchagain.py          Recordings and the All recordings grid (recordings and Plex together)
-  weather/
-    forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
-  theme.py               shared colours
-  images/                weather/ holds the Yr weather icons;
-                         icons/ holds Material Symbols and Material Design Icons, including the red
-                         record mark in the guide (see icons/NOTICE)
-  ui/                    shared building blocks
-    tiles.py             picture tiles for Recordings, All recordings and the Plex views
-    popups.py            themed choice and programme-details pop-ups
-    pin.py               PIN prompts, including choosing the Tech Support PIN on first use
-    placeholder.py       stand-in screen for parts still to come
-    background.py        runs network and disk work off the screen thread
-    scale.py             fits the 1920x1080 layouts to the skin's size
-    icons.py             picks each Material icon at the size nearest the skin's
-    live.py              the red-dot LIVE marker on Home's preview and the webcam player
-  tv/                    live TV
-    guide.py             the TV Guide
-    epg.py               channel lists, programme data, record timers and channel switching
-    picon.py             finds the picon (channel logo) file for any channel
-    infobar.py           the channel banner, number entry and volume pop-ups, swapped in at start-up
-    converter.py         GullionServiceInfo skin converter: Number, Name, Remaining, Icon:N
-    renderer.py          GullionIcon skin renderer, which draws the banner's icons
-    serviceinfo.py       HD, delivery, access codes, signal details and channel numbers
-    nowinfo.py           the What's on panel (INFO)
-    soundsubs.py         the Sound and subtitles pop-up (YELLOW)
-  recordings/            the box's own recordings
-    store.py             reads recordings and resume points, checks the drive, deletes to the recycle bin
-    thumbnails.py        a frame from each recording, via ffmpeg, saved as <recording>.ts.jpg
-  plex/
-    client.py            a small Plex client (Python 2.7): linking, Home users, servers, libraries, artwork
-    setup.py             Tech Support's Plex setup screens
-    library.py           the Films and TV programmes poster views
-  webcams/
-    screens.py           the Webcams grid and full-screen player
-    config.py            reads webcams.yaml (PyYAML if the box has it, otherwise a small built-in reader)
-    sources.py           streams, pictures and live status for mcn.live, churchservices.tv, streams and M3U lists
-config/webcams.yaml      sample webcams list, installed on the box the first time you deploy
-config/images/           webcam tile pictures, copied to the box on every deploy
-scripts/deploy.sh        copy to the box, restart enigma2, save a screenshot
-tools/check.py           offline check against stub enigma2 modules (python3 tools/check.py)
-tools/e2stubs.py         stand-ins for the enigma2 modules, used by check.py and preview.py
-tools/sample_*.py        made-up channels, Plex replies, recordings and webcam pages for the checks and renders
-tools/make_images.py     regenerate images/ from the theme colours, and icons/ from the Material Symbols font (needs Pillow)
-tools/fetch_weather_icons.py  fetch and scale the Yr weather icons into images/weather/ (needs Pillow)
-tools/preview.py         render sample screenshots to screenshots/samples/ (needs Pillow)
-```
-
-The sample renders use the real skin layouts and screen code with sample data. Fonts and the
-live TV picture are approximations of what the box draws.
-
-## Install
-
-From a computer on the same network as the box, with SSH access to it as root:
+You need an enigma2 box on OpenATV 6.4 or 7.x, with SSH access as root. From a computer on the same network:
 
 ```sh
 BOX=192.168.1.50 scripts/deploy.sh
 ```
 
-This copies `plugin/GullionTV` to `/usr/lib/enigma2/python/Plugins/Extensions/GullionTV`, installs the sample
-`webcams.yaml` the first time, restarts enigma2 and saves a screenshot from OpenWebif into `screenshots/`. Without
-the script, copy the `plugin/GullionTV` folder to that place yourself and restart enigma2.
-
-Then set up the channel lists in the stock OpenATV menus as usual: scan Saorview and Freesat, and put the channels
-that get watched into one list at the top, so it's the first list the guide shows.
-
-## Webcams
-
-Edit `/etc/enigma2/gulliontv/webcams.yaml` on the box (over SSH, or with a file manager), then reopen Webcams. The
-sample in [config/webcams.yaml](config/webcams.yaml) explains every field. Each webcam needs a `name` and a `url`:
-
-| Link | What Gullion TV does |
-|---|---|
-| an mcn.live camera page | reads the stream and the church's photo from the page |
-| a churchservices.tv church page | reads the stream, the church photo and the next service time |
-| a direct stream (`.m3u8`, `rtsp://`, `.mp4`) | plays it as it is; add `image:` for a tile picture |
-| an `.m3u` list (`type: playlist`) | makes a tile for every camera in the list |
-
-Any webcam can have `image:` to choose its tile picture instead of the page's: a link, a full path on the box, or
-a file in the `images` folder next to `webcams.yaml` (`image: images/armagh-cathedral.png`). Pictures in
-`config/images/` are copied there on every deploy; if a picture isn't on the box, the page's own is used. The
-Armagh Cathedral photo isn't in this repository, so a fresh copy shows the photo from churchservices.tv instead.
-
-Deploying never overwrites the box's copy of `webcams.yaml`; use `FORCE_CONFIG=1 BOX=... scripts/deploy.sh` to replace it.
-
-## Plex
-
-Plugins → Gullion TV → BLUE (Plex), behind the Tech Support PIN:
-
-1. **Link a Plex account**: the TV shows a code; enter it at plex.tv/link on a phone or computer.
-2. **Who the TV watches as**: pick the Plex Home user (and their PIN if they have one). The TV always uses them.
-3. **The server**: pick it, and Gullion TV finds the best way in: the last one that worked, then the local network,
-   then the internet, and Plex's relay only as a last resort. Setup shows which it's using.
-4. **The libraries**: only film and TV libraries are offered; all are ticked to start.
-
-Then "Quality away from home" (8 Mbps to start) and subtitles (off) can be changed. Everything is saved in
-`/etc/enigma2/gulliontv/plex.json`, readable only by root because it holds the Plex tokens. Streaming from a server
-outside the home needs Plex Pass on the server owner's account (or a Remote Watch Pass for the viewer).
-
-## Weather
-
-In Menu → Plugins → Gullion TV, enter the house's position as **Weather location (latitude, longitude)**, for
-example `54.0830, -6.4500` (in Google Maps, right-click the house to copy it). Leave it empty for no weather line.
-The forecast comes from Met Éireann, or from Open-Meteo if Met Éireann can't be reached, and is fetched once an
-hour in the background. If neither answers for six hours, the weather line simply disappears until one does.
-
-## Recording pictures
-
-Install ffmpeg on the box once (`opkg update && opkg install ffmpeg`). Gullion TV then saves one frame from each
-recording when it finishes, and catches up on older ones when Recordings opens, at the lowest priority. Without
-ffmpeg, recordings show their channel's picon.
-
-## Tech Support notes
-
-- There's no default PIN. The first time Settings is opened, Gullion TV asks for a 4-digit Tech Support PIN
-  (twice, and not an easy one like 0000 or 1234). Change it later in Menu → Plugins → Gullion TV.
-- To go back to the skin's own channel banner, set "Large channel banner" to No and restart.
-- To turn Gullion TV off, set "Open Gullion TV with MENU" to No in the same place. MENU then opens the stock menu,
-  without a PIN; to turn Gullion TV back on, go to Menu → Plugins → Gullion TV and set it to Yes again.
+This copies Gullion TV to the box and restarts enigma2. Then press MENU. The first time Settings is opened, it asks
+for a Tech Support PIN to be chosen. See [Install](docs/setup/install.md) for the details and the optional extras
+(a recording drive, ffmpeg, Plex).
 
 ## Licence
 

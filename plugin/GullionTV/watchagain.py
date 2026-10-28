@@ -4,16 +4,18 @@
 	Continue watching   Plex and recordings left part-way, most recent first
 	Recently added      new films and episodes on Plex (titled "Recently added to Plex")
 	Recorded TV         the box's latest recordings
-	Browse              Films, TV programmes, All recordings
+	Browse              Films, TV programmes, All recordings (the Recordings screen)
+
+Without Plex, Home opens the Recordings screen instead of this.
 """
-from enigma import eServiceReference
 from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Screens.Screen import Screen
 
 from . import theme
 from .plex import client as plex
-from .recordings import store as recordings, thumbnails
+from .recordings import store as recordings
+from .recordings.screen import Recordings, _channel_name, empty_message, make_frames, play_recording, read_recordings  # noqa: F401
 from .tv import picon
 from .ui import tiles
 from .ui.background import Background
@@ -29,23 +31,6 @@ BROWSE_Y = 800
 BUTTON_W, BUTTON_H, MAX_BUTTONS = 560, 110, 3
 ROW_LIMIT = 20
 PLEX_THUMBS = "/tmp/gulliontv/plex"
-FRAME_LIMIT = 20  # newest recordings given a picture each time Watch again opens
-
-
-def _channel_name(ref):
-	from ServiceReference import ServiceReference
-	return ServiceReference(ref).getServiceName().replace("\xc2\x86", "").replace("\xc2\x87", "")
-
-
-def read_recordings():
-	"""(recordings, drive state). Runs in the background: the drive may need to spin up."""
-	return recordings.list_recordings(channel_name=_channel_name), recordings.storage()[0]
-
-
-def empty_message(state):
-	if state == recordings.MISSING:
-		return "Recording isn't set up on this box. Ask Tech Support to check the recording drive."
-	return "No recordings yet. Press REC while watching, or record from the TV Guide."
 
 
 def recording_tile(recording, continuing=False):
@@ -280,7 +265,7 @@ class WatchAgain(Screen):
 		if self.browsing:
 			action = self.buttons[self.button][1]
 			if action == "recordings":
-				self.session.openWithCallback(self.reload, AllRecordings)
+				self.session.openWithCallback(self.reload, Recordings, False)
 			else:
 				from .plex.library import PlexLibrary
 				self.session.open(PlexLibrary, self.plex_settings, plex.MOVIE if action == "films" else plex.SHOW)
@@ -332,122 +317,3 @@ class WatchAgain(Screen):
 					foreground=theme.TEXT_ON_SELECTED if chosen else theme.TEXT)
 			else:
 				button.hide()
-
-
-class AllRecordings(Screen):
-	"""Every recording as a grid of pictures. RED moves one to the recycle bin."""
-
-	COLS, ROWS = 5, 3
-	TOP = 160
-
-	skin = """
-	<screen name="GullionAllRecordings" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
-		<eLabel text="All recordings" position="90,44" size="800,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
-		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
-			<convert type="ClockToText">Format:%%a %%d %%b   %%H:%%M</convert>
-		</widget>
-		<eLabel position="90,130" size="1740,1" backgroundColor="%(divider)s" />
-		%(tiles)s
-		<widget name="empty" position="90,300" size="1740,64" font="Regular;36" foregroundColor="%(muted)s" transparent="1" />
-		<eLabel position="90,1040" size="16,16" backgroundColor="%(red)s" />
-		<eLabel text="Delete   ·   OK to watch   ·   BACK to go back" position="114,1030" size="900,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
-		<widget name="page" position="1580,1030" size="250,36" font="Regular;24" halign="right" foregroundColor="%(muted)s" transparent="1" />
-	</screen>""" % {
-		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER, "red": theme.KEY_RED,
-		"tiles": "".join(tiles.skin("tile%d" % i, LEFT + (i % 5) * (TILE_W + GAP), 160 + (i // 5) * (IMAGE_H + BAND_H + 30), TILE_W, IMAGE_H, BAND_H)
-			for i in range(15)),
-	}
-
-	skin = scale.skin(skin)
-
-	def __init__(self, session):
-		Screen.__init__(self, session)
-		self.setTitle("All recordings")
-		for i in range(self.COLS * self.ROWS):
-			tiles.add_widgets(self, "tile%d" % i)
-		self["empty"] = Label("Looking for recordings...")
-		self["page"] = Label()
-		self.recordings = []
-		self.storage = None
-		self.selected = 0
-		self.pictures = tiles.TilePictures(TILE_W, IMAGE_H)
-		self.background = Background()
-		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "ColorActions", "MenuActions"], {
-			"left": lambda: self.move(-1),
-			"right": lambda: self.move(1),
-			"up": lambda: self.move(-self.COLS),
-			"down": lambda: self.move(self.COLS),
-			"ok": self.ok,
-			"red": self.delete,
-			"cancel": self.leave,
-			"menu": self.leave,
-		}, -1)
-		self.onLayoutFinish.append(self.load)
-
-	def load(self, *args):
-		self.background.run(read_recordings, self.ready)
-
-	def ready(self, found, error):
-		self.recordings, self.storage = found if found else ([], recordings.MISSING)
-		self.selected = min(self.selected, max(0, len(self.recordings) - 1))
-		self.paint()
-		make_frames(self.background, self.recordings, self.load)
-
-	def leave(self):
-		self.background.stop()
-		self.close()
-
-	def move(self, step):
-		target = self.selected + step
-		if 0 <= target < len(self.recordings):
-			self.selected = target
-			self.paint()
-
-	def ok(self):
-		if self.recordings:
-			play_recording(self.session, self.recordings[self.selected], self.load)
-
-	def delete(self):
-		if not self.recordings:
-			return
-		recording = self.recordings[self.selected]
-		self.session.openWithCallback(self.delete_chosen, GullionChoice, "Delete %s?" % recording.title,
-			[("Delete", "delete"), ("Keep it", None)], "It goes to the recycle bin, so Tech Support can bring it back.")
-
-	def delete_chosen(self, choice=None):
-		if choice == "delete" and self.recordings:
-			recordings.move_to_trash(self.recordings[self.selected])
-			self.load()
-
-	def paint(self):
-		per_page = self.COLS * self.ROWS
-		self["empty"].setText("" if self.recordings else empty_message(self.storage))
-		first = self.selected // per_page * per_page
-		for i in range(per_page):
-			index = first + i
-			if index < len(self.recordings):
-				tiles.draw(self, "tile%d" % i, recording_tile(self.recordings[index]), index == self.selected, self.pictures)
-			else:
-				tiles.hide(self, "tile%d" % i)
-		pages = (len(self.recordings) + per_page - 1) // per_page
-		self["page"].setText("Page %d of %d" % (self.selected // per_page + 1, pages) if pages > 1 else "")
-
-
-def make_frames(background, found, reread):
-	"""Make pictures for recordings that don't have one, then show them. Once every
-	picture exists (or ffmpeg isn't installed) nothing more happens."""
-	if any(recording.image is None for recording in found[:FRAME_LIMIT]):
-		background.run(lambda: thumbnails.make_missing(found, FRAME_LIMIT), lambda made, error: made and reread())
-
-
-def play_recording(session, recording, done):
-	from Screens.InfoBar import MoviePlayer
-
-	class RecordingPlayer(MoviePlayer):
-		"""The box's player, but stopping always goes straight back here, never to the
-		stock recordings list or an 'are you sure?' question."""
-
-		def handleLeave(self, how, *args):
-			MoviePlayer.handleLeave(self, "quit", *args)
-
-	session.openWithCallback(done, RecordingPlayer, eServiceReference(recording.service_ref))

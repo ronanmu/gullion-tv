@@ -3,6 +3,7 @@
 Lets the plugin be imported and driven on a dev machine (Python 3) by
 tools/check.py and tools/preview.py. Install before importing the plugin.
 """
+import base64
 import os
 import sys
 import types
@@ -257,6 +258,11 @@ class MoviePlayer(Screen):
 		self.left = how
 
 
+# A real 8x8 grey JPEG, for stand-in pictures: filler bytes saved as .jpg set off virus scanners.
+TINY_JPEG = base64.b64decode(
+	"/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjExLjEwMAD/2wBDAAgUFBcUFxsbGxsbGyAeICEhISAgICAhISEkJCQqKiokJCQhISQkKCgqKi4vLisrKisvLzIyMjw8OTlG"
+	"RkhWVmf/xABKAAEAAAAAAAAAAAAAAAAAAAAAAQEAAAAAAAAAAAAAAAAAAAAAEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgACAAIAwEiAAIRAAMRAP/a"
+	"AAwDAQACEQMRAD8AAA//2Q==")
 SERVICE_NAMES = {}  # channel reference -> name, for ServiceReference(ref string)
 
 config = Config()

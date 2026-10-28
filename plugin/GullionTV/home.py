@@ -17,6 +17,7 @@ from .tv.guide import Guide
 from .tv.serviceinfo import remaining
 from .ui.pin import PinChooser, TechSupportPin
 from .ui.placeholder import ComingSoon
+from .recordings.screen import Recordings
 from .watchagain import WatchAgain
 from .ui.background import Background
 from .weather import forecast
@@ -173,7 +174,11 @@ class GullionHome(Screen):
 		elif index == 1:
 			self.session.openWithCallback(self.guide_closed, Guide)
 		elif index == 2:
-			self.session.open(WatchAgain)
+			# Without Plex there's only recorded TV, so go straight to the list of recordings.
+			if plex.is_configured(plex.load_settings()):
+				self.session.open(WatchAgain)
+			else:
+				self.session.open(Recordings)
 		elif index == 3:
 			self.session.open(WebcamList)
 		elif index == SETTINGS:

@@ -3,7 +3,9 @@ skin as XML, and drive the MENU hook, home navigation and PIN logic.
 
 	python3 tools/check.py
 """
+import io
 import os
+import struct
 import sys
 import tempfile
 import time
@@ -258,7 +260,12 @@ assert session.opened[-1] == ("TechSupportPin",)
 screen.open_item(1)
 assert session.opened[-1] == ("Guide",)
 screen.open_item(2)
-assert session.opened[-1] == ("WatchAgain",)
+assert session.opened[-1] == ("Recordings",), "without Plex, Watch again goes straight to the recordings"
+original_load = home.plex.load_settings
+home.plex.load_settings = lambda path=None: sample_plex.configured_settings()
+screen.open_item(2)
+assert session.opened[-1] == ("WatchAgain",), "with Plex, Watch again has its rows"
+home.plex.load_settings = original_load
 screen.open_item(0)
 assert screen.closed[0] == "tv" and screen.closed[1] is screen.opened_on
 assert [card[2] for card in home.CARDS] == ["red", "green", "yellow", "blue"], "cards follow the remote's colour order"
@@ -711,9 +718,9 @@ bad_list = sources.expand([webcamconfig.Entry("Empty", "http://nowhere.example/x
 assert len(bad_list) == 1 and bad_list[0].status == "broken"
 
 thumbs = tempfile.mkdtemp()
-sample_webcams.PICTURES["https://cdn.example/live/Uploads/ProfileImages/stmalachys.jpeg"] = b"jpeg bytes"
+sample_webcams.PICTURES["https://cdn.example/live/Uploads/ProfileImages/stmalachys.jpeg"] = e2stubs.TINY_JPEG
 path = sources.download_thumbnail(cams[0], fetch, thumbs)
-assert path and open(path, "rb").read() == b"jpeg bytes" and path.endswith(".jpg")
+assert path and open(path, "rb").read() == e2stubs.TINY_JPEG and path.endswith(".jpg")
 assert sources.download_thumbnail(cams[4], fetch, thumbs) is None
 # A picture from webcams.yaml wins over the one on the church's or camera's page.
 for page in ("https://www.churchservices.tv/armaghcathedral", "https://mcn.live/Camera/st-malachys-parish-belfast"):
@@ -905,7 +912,7 @@ assert picker.closed == ({"1", "2"},)
 
 # Watch again with recorded TV and Plex.
 plex.http_request = sample_plex.FakePlex("home")
-sources.fetch = lambda url, binary=False, timeout=8: b"picture"
+sources.fetch = lambda url, binary=False, timeout=8: e2stubs.TINY_JPEG
 watchagain.PLEX_THUMBS = tempfile.mkdtemp()
 session = e2stubs.fake_session()
 screen = watchagain.WatchAgain(session, sample_plex.configured_settings())
@@ -931,7 +938,7 @@ screen.move_down(1)
 assert screen.browsing and screen["button0"].instance.background == theme_rgb("CARD_SELECTED")
 screen.move_across(2)
 screen.ok()
-assert session.opened[-1] == ("AllRecordings",)
+assert session.opened[-1] == ("Recordings", False), "All recordings is the Recordings screen, leaving live TV stopped"
 screen.plex_ready(([], []), None)
 assert screen.browsing, "stays on Browse when rows change"
 screen.move_down(-1)
@@ -946,19 +953,97 @@ plain.background.wait()
 assert [section["title"] for section in plain.sections] == ["Continue watching", "Recorded TV"] and [b[0] for b in plain.buttons] == ["All recordings"]
 print("watch again ok")
 
-grid = watchagain.AllRecordings(session)
-grid.layout()
-grid.background.wait()
-assert grid["tile0_name"].text == "Fair City" and grid["tile5_name"].text == "Gardeners' World" and not grid["tile6_name"].visible
-grid.move(1)
-grid.delete()
+# Recordings: the list with the chosen recording's details beside it.
+from GullionTV.recordings import screen as recscreen  # noqa: E402
+for widget in ET.fromstring(recscreen.Recordings.skin).iter("widget"):
+	name = widget.get("name")
+	assert name is None or name in recscreen.Recordings(session), "skin widget %s missing from Recordings" % name
+session = e2stubs.fake_session()
+listing = recscreen.Recordings(session)
+del session.nav.played[:]
+listing.layout()
+assert session.nav.played == [None], "live TV stops while Recordings is open"
+assert listing["count"].text == "Looking for recordings..."
+listing.background.wait()
+assert listing["count"].text == "6 programmes  ·  Newest first"
+assert [listing["row%d_title" % i].text for i in range(5)] == ["Fair City", "MasterChef", "Nationwide", "Ros na Rún", "Grand Designs"]
+assert listing["row0_edge"].visible and not listing["row1_edge"].visible, "the chosen row is outlined"
+assert listing["row0_status"].text == "Part watched" and listing["row1_status"].text == "New" and listing["row2_status"].text == "Watched"
+assert listing["row0_progress"].visible and not listing["row1_progress"].visible
+assert listing["row0_when"].text == recscreen.short_when(listing.recordings[0]) and listing["row0_when"].text.endswith("·  30 min")
+assert listing["title"].text == "Fair City" and listing["channel"].text == "RTÉ One"
+assert listing["length"].text == "30 min  ·  1.2 GB", listing["length"].text
+assert listing["description"].text == "Paul worries about the cafe, and Katy has news for Dean.", "the access codes are icons, not text"
+assert listing["code0"].visible and listing["code0"].instance.pixmap.endswith("subtitles_40.png") and not listing["code1"].visible
+assert listing["watched"].text == "12 min watched  ·  18 min left" and listing["progress"].value == 40
+assert listing["page"].text == "1 of 6"
+assert not listing["row5_title"].visible if "row5_title" in listing else True
+listing.move(1)
+assert listing["title"].text == "MasterChef" and listing["length"].text == "1 hr  ·  2.8 GB"
+assert [listing["code%d" % i].instance.pixmap.rsplit("/", 1)[1] for i in range(2)] == ["audio_description_40.png", "subtitles_40.png"], "packed from the right"
+assert not listing["progress"].visible and listing["watched"].text == ""
+listing.move(10)
+assert listing.selected == 5 and listing.top == 1 and listing["row4_title"].text == "Gardeners' World", "the list scrolls"
+assert listing["length"].text == "30 min  ·  640 MB"
+assert listing["description"].text == "No description for this recording."
+assert listing["picture_icon"].visible or listing["picture_logo"].visible, "no frame yet: the logo or a record mark"
+listing.move(-10)
+assert listing.selected == 0 and listing.top == 0
+assert recordings.file_size(0) == "0 MB" and recordings.file_size(300 * recordings.MB) == "300 MB"
+assert recordings.file_size(int(14.4 * recordings.GB)) == "14 GB" and recordings.file_size(int(1.25 * recordings.GB)) in ("1.2 GB", "1.3 GB")
+
+# BLUE changes the order, staying on the same recording.
+listing.move(1)
+listing.change_order()
+assert listing["count"].text.endswith("Oldest first") and listing.chosen().title == "MasterChef"
+assert listing.recordings[0].title == "Gardeners' World"
+listing.change_order()
+assert [r.title for r in listing.recordings] == ["Fair City", "Gardeners' World", "Grand Designs", "MasterChef", "Nationwide", "Ros na Rún"]
+listing.change_order()
+assert [r.channel for r in listing.recordings][:3] == ["BBC One NI", "BBC Two NI", "Channel 4"]
+listing.change_order()
+assert listing.order == recordings.NEWEST and listing.chosen().title == "MasterChef"
+
+# A recording still being made has REC on its picture and says so.
+session.nav.RecordTimer = types.SimpleNamespace(timer_list=[types.SimpleNamespace(state=2, Filename=listing.recordings[1].path[:-3])])
+listing.paint()
+assert listing["row1_status"].text == "Recording now" and listing["rec_pill"].visible
+del session.nav.RecordTimer
+listing.paint()
+assert not listing["rec_pill"].visible
+
+# OK plays it; MENU offers more.
+listing.move(-1)
+listing.ok()
+assert session.opened[-1][0] == "RecordingPlayer" and session.opened[-1][1].ref == listing.recordings[0].service_ref
+listing.options()
+assert session.opened[-1][0] == "GullionChoice" and [o[0] for o in session.opened[-1][2]] == ["Watch from the start", "Delete", "Cancel"]
+cuts = open(listing.recordings[0].path + ".cuts", "rb").read()
+listing.option_chosen("start")
+assert session.opened[-1][0] == "RecordingPlayer" and recordings.read(listing.recordings[0].path).position == 0, "from the start forgets the stop"
+assert len(open(listing.recordings[0].path + ".cuts", "rb").read()) == 12, "other cue marks are kept"
+with open(listing.recordings[0].path + ".cuts", "wb") as handle:
+	handle.write(cuts)
+listing.background.wait()
+listing.move(1)
+listing.options()
+assert [o[0] for o in session.opened[-1][2]] == ["Delete", "Cancel"], "nothing to start again when it hasn't been watched"
+listing.option_chosen("delete")
 assert session.opened[-1][0] == "GullionChoice" and session.opened[-1][1] == "Delete MasterChef?"
-grid.delete_chosen("delete")
-grid.background.wait()
-assert [r.title for r in grid.recordings][:2] == ["Fair City", "Nationwide"]
+listing.delete_chosen("delete")
+listing.background.wait()
+assert [r.title for r in listing.recordings][:2] == ["Fair City", "Nationwide"] and listing["count"].text.startswith("5 programmes")
 trash = os.path.join(folder, ".Trash")
 assert sorted(os.listdir(trash)) == ["20261026 2100 - BBC One NI - MasterChef.ts", "20261026 2100 - BBC One NI - MasterChef.ts.meta"]
-print("all recordings ok")
+listing.leave()
+assert session.nav.played[-1] is not None, "live TV comes back"
+from_watch_again = recscreen.Recordings(session, False)
+del session.nav.played[:]
+from_watch_again.layout()
+from_watch_again.background.wait()
+from_watch_again.leave()
+assert session.nav.played == [], "Watch again looks after live TV itself"
+print("recordings screen ok")
 
 # Recording drive check.
 assert recordings.storage("/nonexistent/movie") == (recordings.MISSING, 0)
@@ -1045,23 +1130,44 @@ assert sample.image is None
 calls = []
 
 
-def fake_ffmpeg(arguments, sizes=[200, 9000]):
+def fake_ffmpeg(arguments, sizes=[200, 19000]):
 	calls.append(arguments)
 	with open(arguments[-1], "wb") as handle:
 		handle.write(b"x" * sizes[min(len(calls) - 1, len(sizes) - 1)])
 	return 0
 
 
+# The stand-in ffmpeg writes filler, so it's saved under a name that isn't a picture.
+original_path_for = thumbnails.path_for
+thumbnails.path_for = lambda path: path + ".frame-test"
 made = thumbnails.make(sample, "/usr/bin/ffmpeg", fake_ffmpeg)
-assert made == sample.path + ".jpg" and os.path.getsize(made) == 9000, "a nearly blank first try is taken again further in"
+assert made == sample.path + ".frame-test" and os.path.getsize(made) == 19000, "a nearly blank first try is taken again further in"
 assert calls[0][calls[0].index("-ss") + 1] == str(int(sample.duration * 0.10)) and calls[1][calls[1].index("-ss") + 1] == str(int(sample.duration * 0.25))
-assert "scale=328:184" in calls[0] and not os.path.exists(made + ".part")
-assert recordings.read(sample.path).image == made
-tile = watchagain.recording_tile(recordings.read(sample.path))
-assert tile.image == made and tile.logo == picon.picon_path(sample.channel_ref), "the frame, with the channel's logo in the corner"
+assert "scale=768:432" in calls[0] and not os.path.exists(made + ".part")
 assert thumbnails.make(sample, None, fake_ffmpeg) is None or thumbnails.find_ffmpeg(), "no ffmpeg, no picture"
 assert thumbnails.make_missing(recordings.list_recordings(folder), 12, "/usr/bin/ffmpeg", lambda arguments: 1) == 0
 os.remove(made)
+thumbnails.path_for = original_path_for
+
+# Small pictures from earlier versions are made again at the size the large picture needs.
+# Read from memory: header-only .jpg files on disk upset virus scanners.
+def jpeg_header(width, height, frame=b"\xc0"):
+	"""The start of a JPEG: a JFIF segment, a table, then the frame size."""
+	jfif = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+	table = b"\xff\xc4" + struct.pack(">H", 5) + b"\x00\x00\x00"
+	return b"\xff\xd8" + jfif + table + b"\xff" + frame + struct.pack(">HBHHB", 11, 8, height, width, 3) + b"\x00" * 6
+
+
+assert thumbnails.read_jpeg_size(io.BytesIO(jpeg_header(328, 184))) == (328, 184)
+assert thumbnails.read_jpeg_size(io.BytesIO(jpeg_header(768, 432, b"\xc2"))) == (768, 432), "progressive too"
+assert thumbnails.read_jpeg_size(io.BytesIO(b"not a picture")) is None
+fake = types.SimpleNamespace(image="frame")
+original_size = thumbnails.jpeg_size
+for size, needed in (((328, 184), True), ((768, 432), False), (None, False)):
+	thumbnails.jpeg_size = lambda path, size=size: size
+	assert thumbnails.needs_frame(fake) == needed, size
+thumbnails.jpeg_size = original_size
+assert thumbnails.needs_frame(types.SimpleNamespace(image=None))
 
 ended = []
 thumbnails.make = lambda recording, *args: ended.append(recording.title)
@@ -1243,7 +1349,7 @@ for folder, _, files in os.walk(os.path.join(os.path.dirname(os.path.abspath(__f
 
 # Fitting other skin sizes: every screen designed at 1920x1080 must fit the
 # skin's own size once scaled (MetrixHD and the default skin are 1280x720).
-screens = [home.GullionHome, guide.Guide, watchagain.WatchAgain, watchagain.AllRecordings, webcams.WebcamList,
+screens = [home.GullionHome, guide.Guide, watchagain.WatchAgain, watchagain.Recordings, webcams.WebcamList,
 	webcams.WebcamPlayer, plexlibrary.PlexLibrary, plexsetup.PlexSetup, plexsetup.OptionList, plexsetup.PlexLink,
 	popups.GullionChoice, popups.EventDetails, pin.PinEntry, placeholder.ComingSoon, setup.GullionTVSetup]
 assert scale.factor() == 1.0 and scale.skin(home.GullionHome.skin) == home.GullionHome.skin, "full HD is drawn exactly as designed"
@@ -1268,3 +1374,51 @@ scale.set_factor(720 / 1920.0)
 assert guide.rec_icon_path().endswith("record_10.png")
 scale.set_factor(1.0)
 print("skin sizes ok")
+
+# The documentation: every link and picture points at something that exists, every
+# rendered screenshot is shown on a page, and every page is in the index.
+import re  # noqa: E402
+
+REPO = os.path.abspath(os.path.join(e2stubs.PLUGIN_PARENT, ".."))
+DOCS = os.path.join(REPO, "docs")
+LINK = re.compile(r"(!?)\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def heading_anchors(path):
+	"""The #anchors GitHub makes for a page's headings."""
+	anchors = set()
+	in_code = False
+	for line in open(path, encoding="utf-8"):
+		if line.startswith("```"):
+			in_code = not in_code
+		elif not in_code and line.startswith("#"):
+			title = line.lstrip("#").strip().lower()
+			anchors.add(re.sub(r"[^\w\- ]", "", title).replace(" ", "-"))
+	return anchors
+
+
+pages = [os.path.join(REPO, "README.md")] + sorted(glob.glob(os.path.join(DOCS, "**", "*.md"), recursive=True))
+shown, linked = set(), {}
+for page in pages:
+	text = re.sub(r"```.*?```", "", open(page, encoding="utf-8").read(), flags=re.S)
+	for picture, target in LINK.findall(text):
+		if re.match(r"[a-z]+:", target):
+			continue
+		path, _, anchor = target.partition("#")
+		resolved = os.path.normpath(os.path.join(os.path.dirname(page), path)) if path else page
+		where = "%s links to %s" % (os.path.relpath(page, REPO), target)
+		assert os.path.exists(resolved), where + ", which doesn't exist"
+		if anchor and resolved.endswith(".md"):
+			assert anchor in heading_anchors(resolved), where + ", which has no such heading"
+		if picture:
+			shown.add(resolved)
+		else:
+			linked.setdefault(page, set()).add(resolved)
+renders = set(glob.glob(os.path.join(DOCS, "images", "*.png")))
+assert renders, "no rendered screenshots in docs/images"
+unused = sorted(os.path.basename(path) for path in renders - shown)
+assert not unused, "screenshots not shown on any page: %s" % ", ".join(unused)
+index = os.path.join(DOCS, "README.md")
+missing = sorted(os.path.relpath(page, DOCS) for page in pages[1:] if page != index and page not in linked.get(index, set()))
+assert not missing, "pages not linked from docs/README.md: %s" % ", ".join(missing)
+print("docs ok")

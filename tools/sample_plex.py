@@ -140,13 +140,14 @@ def configured_settings():
 
 
 RECORDINGS = [
-	# (file name, title, channel ref, description, hours ago, minutes long, minutes watched)
-	("20261027 2000 - RTE One - Fair City.ts", "Fair City", "1:0:19:1:1:1:EEEE0000:0:0:0:", "Paul worries about the cafe.", 0.5, 30, 12),
-	("20261026 2100 - BBC One NI - MasterChef.ts", "MasterChef", "1:0:19:5:1:1:11A0000:0:0:0:", "The quarter-final.", 22.7, 60, 0),
-	("20261025 1930 - RTE One - Nationwide.ts", "Nationwide", "1:0:19:1:1:1:EEEE0000:0:0:0:", "A bakery in Dundalk.", 48.2, 30, 30),
-	("20261024 2030 - TG4 - Ros na Run.ts", "Ros na Rún", "1:0:19:4:1:1:EEEE0000:0:0:0:", "", 71, 40, 0),
-	("20261020 2100 - Channel 4 - Grand Designs.ts", "Grand Designs", "1:0:19:8:1:1:11A0000:0:0:0:", "A house in a quarry.", 165, 60, 0),
-	("20261018 2000 - BBC Two NI - Gardeners World.ts", "Gardeners' World", "1:0:19:6:1:1:11A0000:0:0:0:", "", 214, 30, 0),
+	# (file name, title, channel ref, description, hours ago, minutes long, minutes watched, size in MB)
+	("20261027 2000 - RTE One - Fair City.ts", "Fair City", "1:0:19:1:1:1:EEEE0000:0:0:0:", "Paul worries about the cafe, and Katy has news for Dean. (HD, S)", 0.5, 30, 12, 1240),
+	("20261026 2100 - BBC One NI - MasterChef.ts", "MasterChef", "1:0:19:5:1:1:11A0000:0:0:0:",
+		"The quarter-final. The five remaining cooks face the critics' table in a London restaurant. [S,AD] [HD]", 22.7, 60, 0, 2860),
+	("20261025 1930 - RTE One - Nationwide.ts", "Nationwide", "1:0:19:1:1:1:EEEE0000:0:0:0:", "A bakery in Dundalk. (S)", 48.2, 30, 30, 1190),
+	("20261024 2030 - TG4 - Ros na Run.ts", "Ros na Rún", "1:0:19:4:1:1:EEEE0000:0:0:0:", "", 71, 40, 0, 860),
+	("20261020 2100 - Channel 4 - Grand Designs.ts", "Grand Designs", "1:0:19:8:1:1:11A0000:0:0:0:", "A house in a quarry. [S,SL]", 165, 60, 0, 2410),
+	("20261018 2000 - BBC Two NI - Gardeners World.ts", "Gardeners' World", "1:0:19:6:1:1:11A0000:0:0:0:", "", 214, 30, 0, 640),
 ]
 
 
@@ -154,9 +155,10 @@ def make_recordings(folder):
 	"""Write .ts, .ts.meta and .ts.cuts files the way the box does."""
 	if not os.path.isdir(folder):
 		os.makedirs(folder)
-	for name, title, ref, description, hours_ago, minutes, watched in RECORDINGS:
+	for name, title, ref, description, hours_ago, minutes, watched, megabytes in RECORDINGS:
 		path = os.path.join(folder, name)
-		open(path, "wb").close()
+		with open(path, "wb") as handle:
+			handle.truncate(megabytes * 1024 * 1024)  # sparse: takes no room on the disk
 		begin = NOW - int(hours_ago * HOUR)
 		with open(path + ".meta", "wb") as handle:
 			handle.write(("%s\n%s\n%s\n%d\n\n%d\n0\n" % (ref, title, description, begin, minutes * 60 * 90000)).encode("utf-8"))

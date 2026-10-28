@@ -12,6 +12,7 @@ import struct
 import time
 
 DEFAULT_FOLDER = "/media/hdd/movie"
+MB = 1024 ** 2
 GB = 1024 ** 3
 MIN_FREE = 2 * GB   # below this a recording would soon fill the drive
 LOW_FREE = 10 * GB  # below this, warn
@@ -60,6 +61,18 @@ class Recording(object):
 			return 0
 
 	@property
+	def watched(self):
+		return self.progress is not None and self.progress >= 0.95
+
+	@property
+	def size(self):
+		"""The recording's size on the drive, in bytes."""
+		try:
+			return os.path.getsize(self.path)
+		except OSError:
+			return 0
+
+	@property
 	def image(self):
 		"""A picture saved beside the recording by a thumbnail tool, if there is one."""
 		for candidate in (self.path + ".jpg", os.path.splitext(self.path)[0] + ".jpg"):
@@ -79,6 +92,37 @@ class Recording(object):
 		if days < 7:
 			return "%s %s" % (time.strftime("%A", day), clock)
 		return "%d %s" % (day.tm_mday, time.strftime("%b", day))
+
+
+def file_size(size):
+	"""Bytes in plain words: "850 MB", "1.2 GB", "14 GB"."""
+	if size < GB:
+		return "%d MB" % max(1, round(size / float(MB))) if size else "0 MB"
+	gigabytes = size / float(GB)
+	return "%.1f GB" % gigabytes if gigabytes < 10 else "%d GB" % round(gigabytes)
+
+
+# The orders BLUE steps through on the Recordings screen.
+NEWEST, OLDEST, TITLE, CHANNEL = "newest", "oldest", "title", "channel"
+SORTS = (NEWEST, OLDEST, TITLE, CHANNEL)
+SORT_NAMES = {NEWEST: "Newest first", OLDEST: "Oldest first", TITLE: "A to Z", CHANNEL: "By channel"}
+
+
+def sort(found, order):
+	"""A sorted copy. Titles and channels are compared without case or a leading "The"."""
+	if order == OLDEST:
+		return sorted(found, key=lambda recording: recording.begin)
+	newest = sorted(found, key=lambda recording: recording.begin, reverse=True)
+	if order == TITLE:
+		return sorted(newest, key=lambda recording: _sort_name(recording.title))
+	if order == CHANNEL:
+		return sorted(newest, key=lambda recording: _sort_name(recording.channel))
+	return newest
+
+
+def _sort_name(text):
+	text = (text or "").strip().lower()
+	return text[4:] if text.startswith("the ") else text
 
 
 def storage(folder=None):
@@ -189,6 +233,21 @@ def last_position(path):
 		if kind == LAST_POSITION:
 			position = ticks // TICKS
 	return position
+
+
+def forget_position(recording):
+	"""Drop where playback last stopped, so the next play starts at the beginning.
+	The recording's other cue marks (its chapters and cuts) are kept."""
+	try:
+		with open(recording.path + ".cuts", "rb") as handle:
+			data = handle.read()
+	except (IOError, OSError):
+		return
+	kept = b"".join(data[offset:offset + 12] for offset in range(0, len(data) - 11, 12)
+		if struct.unpack(">QI", data[offset:offset + 12])[1] != LAST_POSITION)
+	with open(recording.path + ".cuts", "wb") as handle:
+		handle.write(kept)
+	recording.position = 0
 
 
 def move_to_trash(recording):
