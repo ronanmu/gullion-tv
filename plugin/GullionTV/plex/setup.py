@@ -390,7 +390,7 @@ class PlexSetup(Screen):
 			return
 		self.settings["sections"] = sorted(chosen)
 		self.settings["section_names"] = [self.library_names.get(key, key) for key in self.settings["sections"]]
-		self.save("Plex is ready in Recordings" if plex.is_configured(self.settings) else "Choose at least one library")
+		self.save("Plex is ready in Media" if plex.is_configured(self.settings) else "Choose at least one library")
 
 	def step_quality(self):
 		current = self.settings["remote_kbps"]
@@ -404,7 +404,7 @@ class PlexSetup(Screen):
 
 	def step_unlink(self):
 		self.session.openWithCallback(self.unlink_chosen, GullionChoice, "Unlink Plex?",
-			[("Unlink", "unlink"), ("Keep it", None)], "Films and TV from Plex will disappear from Recordings.")
+			[("Unlink", "unlink"), ("Keep it", None)], "Movies and TV shows from Plex will disappear from Media.")
 
 	def unlink_chosen(self, choice=None):
 		if choice != "unlink":

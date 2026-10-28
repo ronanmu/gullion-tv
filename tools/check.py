@@ -260,7 +260,7 @@ assert session.opened[-1] == ("TechSupportPin",)
 screen.open_item(1)
 assert session.opened[-1] == ("Guide",)
 screen.open_item(2)
-assert session.opened[-1] == ("Recordings",), "without Plex, Watch again goes straight to the recordings"
+assert session.opened[-1] == ("WatchAgain",), "Media opens the same screen without Plex"
 original_load = home.plex.load_settings
 home.plex.load_settings = lambda path=None: sample_plex.configured_settings()
 screen.open_item(2)
@@ -298,7 +298,7 @@ assert [(c.name, c.number) for _, _, channels in numbered for c in channels] == 
 for title, subtitle, colour, icon in home.CARDS:
 	for name in (icon, icon + "_on_light"):
 		assert os.path.isfile(ui_icons.card_icon(name)), name
-assert [card[0] for card in home.CARDS] == ["Live TV", "TV Guide", "Recordings", "Webcams"]
+assert [card[0] for card in home.CARDS] == ["Live TV", "TV Guide", "Media", "Webcams"]
 for el in ET.fromstring(home.GullionHome.skin).iter("ePixmap"):
 	assert os.path.isfile(el.get("pixmap")), el.get("pixmap")
 screen.paint_selection()
@@ -328,8 +328,8 @@ for widget in ET.fromstring(guide.Guide.skin).iter("widget"):
 	assert name is None or name in g, "skin widget %s missing from guide" % name
 g.layout()
 assert g.channels[g.row].name == "RTÉ One" and g.selected_event().title == "Nationwide"
-assert g["hints"].text == "OK  Watch          REC  Record          INFO  More details", g["hints"].text
-assert g["footer"].text.endswith("OK to watch or record   ·   BACK for home") and g["storage_note"].text == ""
+assert "REC: record" in g["footer"].text and "INFO: details" in g["footer"].text
+assert g["footer"].text.endswith("BACK: home") and g["storage_note"].text == ""
 assert time.strftime("%H:%M", time.localtime(g.window_start)) == "19:30"
 assert len(g["grid"].list) == guide.ROWS
 
@@ -370,10 +370,11 @@ assert not getattr(g["now_line"], "visible", True)
 g.shift_day(-1)
 g.jump_to_now()
 assert g["now_line"].visible and g["day0"].instance.background == guide.theme.rgb(guide.theme.CARD)
-g.next_list()
-assert g["list_name"].text == "Saorview" and g.row == 0
-g.next_list()
-g.next_list()
+g["actions"].args[1]["yellow"]()
+assert session.opened[-1][0] == "ChannelLists", "YELLOW must open a selector instead of cycling"
+g.list_chosen(1)
+assert g["list_name"].text == "Saorview" and g.row == len(g.lists[0][2])
+g.list_chosen(0)
 guide.Guide.last_list = 0
 
 # Picon in the guide: the logo when there is one, otherwise a name card.
@@ -432,7 +433,7 @@ before = len(session.opened)
 g.ok()
 g.record_key()
 assert len(session.opened) == before and not getattr(g, "closed", None), "nothing to watch or record"
-assert [g["hint%d_key" % i].text for i in range(guide.HINTS)] == ["INFO", "", ""], [g["hint%d_key" % i].text for i in range(guide.HINTS)]
+assert not any(el.get("name", "").startswith("hint") for el in ET.fromstring(g.skin)), "outlined action hints must be removed"
 
 # Access codes in the guide: taken out of the description, shown as icons instead.
 g = guide.Guide(session)
@@ -446,7 +447,81 @@ assert shown == ["audio_description", "subtitles"], shown
 details = []
 g.session = types.SimpleNamespace(open=lambda cls, *a: details.append(a), nav=session.nav)
 g.show_details()
-assert details and details[-1][2] == "Sandra enlists help.", details
+assert details and details[-1][2:] == (coded.description, g.channels[g.row].ref), "details must receive raw codes and the selected channel"
+detail_panel = popups.EventDetails(session, *details[-1])
+detail_panel.layout()
+assert detail_panel["description"].text == "Sandra enlists help."
+assert detail_panel.icon_names == ["subtitles", "audio_description", "hd", "terrestrial"], "details must use the same icons as What's on"
+assert detail_panel["icon0"].instance.pixmap.endswith("terrestrial_40.png")
+alias_panel = popups.EventDetails(session, "Programme", "20:00", "A story. (HD, A, R)", "1:0:19:5:1:1:11A0000:0:0:0:")
+alias_panel.layout()
+assert alias_panel["description"].text == "A story." and alias_panel.icon_names == ["audio_description", "repeat", "hd", "satellite"], "A must be parsed as audio description"
+unknown_panel = popups.EventDetails(session, "Programme", "20:00", "A film (USA)")
+unknown_panel.layout()
+assert unknown_panel["description"].text == "A film (USA)" and not unknown_panel["icon0"].visible, "ordinary bracketed text must remain"
+
+# A continuous grid crosses bouquets in either direction, retaining box numbers.
+original_lists = guide.epg.channel_lists
+try:
+	first = [guide.epg.Channel("saor%d" % n, "Saorview %d" % n, n) for n in range(1, 21)]
+	second = [guide.epg.Channel("free%d" % n, "Freesat %d" % n, n) for n in range(101, 111)]
+	guide.epg.channel_lists = lambda: [("saor", "Saorview", first), ("empty", "Empty", []), ("free", "Freesat", second)]
+	continuous = guide.Guide(session)
+	continuous.layout()
+	continuous.show_channel(lambda channel: channel.number == 20)
+	continuous.redraw()
+	assert len(continuous["grid"].list) == guide.ROWS, "visible rows must continue into the next bouquet"
+	continuous.move_row(1)
+	assert continuous.channels[continuous.row].number == 101 and continuous["list_name"].text == "Freesat", "20 must lead straight to 101"
+	original_zap = guide.epg.zap
+	zaps = []
+	try:
+		guide.epg.zap = lambda session, ref, bouquet: zaps.append((ref, bouquet))
+		continuous.selected_event = lambda: coded
+		continuous.ok()
+		assert zaps == [("free101", "free")], "watching across a boundary must use that channel's bouquet"
+		del continuous.selected_event
+	finally:
+		guide.epg.zap = original_zap
+	continuous.move_row(-1)
+	assert continuous.channels[continuous.row].number == 20 and continuous["list_name"].text == "Saorview", "101 must lead back to 20"
+	continuous.move_row(guide.ROWS)
+	assert continuous.channels[continuous.row].number == 106, "page movement must cross bouquet boundaries"
+	continuous.move_row(-guide.ROWS)
+	assert continuous.channels[continuous.row].number == 20
+	continuous.list_chosen(1)
+	assert continuous.channels[continuous.row].number == 101 and len(continuous.lists) == 2, "selector must skip empty lists and jump to the first channel"
+	row_before = continuous.row
+	continuous.list_chosen(None)
+	assert continuous.row == row_before, "cancelling the selector must retain the channel"
+	continuous.move_row(1000)
+	assert continuous.channels[continuous.row].number == 110, "end of all lists must clamp safely"
+	continuous.move_row(-1000)
+	assert continuous.channels[continuous.row].number == 1
+	guide.epg.channel_lists = lambda: []
+	empty_guide = guide.Guide(session)
+	empty_guide.layout()
+	empty_guide.move_row(1)
+	empty_guide.choose_list()
+	assert empty_guide["list_name"].text == "No channel lists yet"
+finally:
+	guide.epg.channel_lists = original_lists
+	guide.Guide.last_list = 0
+
+selector = guide.ChannelLists(session, [("List %d" % n, n) for n in range(7)], 2)
+selector.layout()
+assert selector.selected == 2 and len(selector.options) == 3
+selector.move(1)
+assert selector.options[selector.selected][1] == 3 and selector["option0"].text == "List 3", "selector must page beyond three lists"
+selector.move(3)
+assert len(selector.options) == 1 and selector.options[selector.selected][1] == 6
+selector.move(-1)
+assert selector.options[selector.selected][1] == 5, "selector must page backwards"
+selector["actions"].args[1]["ok"]()
+assert selector.closed == (5,), "selector must return the actual bouquet index"
+for panel in (selector, detail_panel):
+	for widget in ET.fromstring(panel.skin).iter("widget"):
+		assert widget.get("name") in panel, "every selector and details widget must exist"
 print("guide ok")
 
 # INFO on live TV: now, and what's coming up.
@@ -923,34 +998,57 @@ del session.nav.played[:]
 screen.layout()
 assert session.nav.played == [None], "live TV stops while Watch again is open"
 screen.background.wait()
-assert [section["title"] for section in screen.sections] == ["Continue watching", "Recently added to Plex", "Recorded TV"]
-assert [tile.title for tile in screen.sections[0]["tiles"]] == ["Fair City", "Line of Duty", "The Commitments"], "most recently watched first"
+assert screen.title == "Media" and watchagain.FILTERS == ("All", "Recorded TV", "Movies on Plex", "TV Shows on Plex")
+assert [section["title"] for section in screen.sections] == ["Continue watching", "Recently added"]
+assert [tile.title for tile in screen.sections[0]["tiles"]] == ["Fair City", "The Commitments", "Line of Duty"], "All has up to three recordings, one movie and one TV item"
+assert [tile.title for tile in screen.sections[1]["tiles"]] == ["Fair City", "MasterChef", "Nationwide", "The Banshees of Inisherin", "Derry Girls"]
 assert screen.sections[0]["tiles"][0].subtitle == "RTÉ One  ·  18 min left"
-assert screen.sections[0]["tiles"][2].subtitle == "44 min left"
-assert screen.sections[0]["tiles"][1].image and os.path.isfile(screen.sections[0]["tiles"][1].image)
-assert screen["slot0_title"].text == "Continue watching" and screen["slot1_title"].text == "Recently added to Plex"
+assert screen.sections[0]["tiles"][1].subtitle == "44 min left"
+assert screen.sections[0]["tiles"][2].image and os.path.isfile(screen.sections[0]["tiles"][2].image)
+assert screen["slot0_title"].text == "Continue watching" and screen["slot1_title"].text == "Recently added"
 assert screen["slot0_tile0_band"].instance.background == theme_rgb("CARD_SELECTED")
-assert [b[0] for b in screen.buttons] == ["Films", "TV programmes", "All recordings"]
+assert screen["tab0_bg"].instance.background == theme_rgb("CARD_SELECTED")
+assert watchagain.VISIBLE == (4, 5) and watchagain.ROW_LIMIT == (8, 10), "Media shelves must show four and five cards and cap at eight and ten"
+assert screen.sections[1]["tiles"][3].image == screen.plex_rows[1][0].poster_picture, "recent Plex cards must use portrait poster art"
+screen.recordings = screen.recordings * 10
+screen["actions"].args[1]["green"]()
+assert screen.filter == 1 and [tile.title for tile in screen.sections[0]["tiles"]][:1] == ["Fair City"]
+assert [tile.title for tile in screen.sections[1]["tiles"]][:3] == ["Fair City", "MasterChef", "Nationwide"]
+assert len(screen.sections[0]["tiles"]) == 8 and len(screen.sections[1]["tiles"]) == 10, "filtered shelves must stop at their separate limits"
+assert screen.sections[1]["tiles"][0].image, "recent recordings must use their channel picon"
 screen.move_down(1)
-screen.move_down(1)
-assert screen.top == 1 and screen["slot1_title"].text == "Recorded TV", "rows scroll up as you go down"
-screen.move_down(1)
-assert screen.browsing and screen["button0"].instance.background == theme_rgb("CARD_SELECTED")
-screen.move_across(2)
-screen.ok()
-assert session.opened[-1] == ("Recordings", False), "All recordings is the Recordings screen, leaving live TV stopped"
-screen.plex_ready(([], []), None)
-assert screen.browsing, "stays on Browse when rows change"
+for _ in range(9):
+	screen.move_across(1)
+assert screen.columns["Recently added"] == 9 and screen.offsets["Recently added"] == 5, "five-wide rows must scroll to the tenth panel"
+screen.choose_filter(0)
 screen.move_down(-1)
+assert screen.row == -1, "UP from Continue watching must focus the filters"
+screen.move_across(1)
+assert screen.filter == 1 and screen.row == -1, "LEFT and RIGHT must change a focused filter"
+screen.move_down(1)
+assert screen.row == 0, "DOWN from the filters must return to Continue watching"
+screen["actions"].args[1]["yellow"]()
+assert [tile.title for tile in screen.sections[0]["tiles"]] == ["The Commitments"]
+assert [tile.title for tile in screen.sections[1]["tiles"]] == ["The Banshees of Inisherin", "Brooklyn"]
+screen["actions"].args[1]["blue"]()
+assert [tile.title for tile in screen.sections[0]["tiles"]] == ["Line of Duty"]
+assert [tile.title for tile in screen.sections[1]["tiles"]] == ["Derry Girls", "Normal People"]
+screen["actions"].args[1]["red"]()
 screen.ok()
 assert session.opened[-1][0] == "RecordingPlayer" and session.opened[-1][1].ref == fair_city.service_ref
+screen["actions"].args[1]["green"]()
+screen.open_recordings()
+assert session.opened[-1] == ("Recordings", False), "MENU keeps the full Recorded TV list available"
 screen.plex_ready(None, plex.PlexError("down"))
 assert screen["note"].text == "Plex isn't reachable right now"
 
 plain = watchagain.WatchAgain(session, {})
 plain.layout()
 plain.background.wait()
-assert [section["title"] for section in plain.sections] == ["Continue watching", "Recorded TV"] and [b[0] for b in plain.buttons] == ["All recordings"]
+assert [section["title"] for section in plain.sections] == ["Continue watching", "Recently added"]
+assert [tile.title for tile in plain.sections[1]["tiles"]][:3] == ["Fair City", "MasterChef", "Nationwide"]
+plain.choose_filter(2)
+assert plain["slot0_empty"].text == "Plex isn't set up" or plain["slot1_empty"].text == "Plex isn't set up"
 print("watch again ok")
 
 # Recordings: the list with the chosen recording's details beside it.
@@ -991,26 +1089,39 @@ listing.move(-10)
 assert listing.selected == 0 and listing.top == 0
 assert recordings.file_size(0) == "0 MB" and recordings.file_size(300 * recordings.MB) == "300 MB"
 assert recordings.file_size(int(14.4 * recordings.GB)) == "14 GB" and recordings.file_size(int(1.25 * recordings.GB)) in ("1.2 GB", "1.3 GB")
+older = recordings.Recording("/older.ts", "Older", "", "", int(time.mktime((2025, 10, 27, 20, 0, 0, 0, 0, -1))), 1800, 0)
+assert "2025" in recscreen.short_when(older) and "2025" in recscreen.long_when(older), "older recordings must include their year"
+assert str(time.localtime().tm_year) not in recscreen.short_when(listing.recordings[0]), "this year's recordings must stay compact"
 
-# BLUE changes the order, staying on the same recording.
+# BLUE changes the order and shows the start of each newly sorted list.
 listing.move(1)
-listing.change_order()
-assert listing["count"].text.endswith("Oldest first") and listing.chosen().title == "MasterChef"
+listing["actions"].args[1]["blue"]()
+assert listing["count"].text.endswith("Oldest first") and listing.selected == 0 and listing.top == 0
 assert listing.recordings[0].title == "Gardeners' World"
 listing.change_order()
 assert [r.title for r in listing.recordings] == ["Fair City", "Gardeners' World", "Grand Designs", "MasterChef", "Nationwide", "Ros na Rún"]
 listing.change_order()
 assert [r.channel for r in listing.recordings][:3] == ["BBC One NI", "BBC Two NI", "Channel 4"]
 listing.change_order()
-assert listing.order == recordings.NEWEST and listing.chosen().title == "MasterChef"
+assert listing.order == recordings.NEWEST and listing.chosen().title == "Fair City"
 
 # A recording still being made has REC on its picture and says so.
 session.nav.RecordTimer = types.SimpleNamespace(timer_list=[types.SimpleNamespace(state=2, Filename=listing.recordings[1].path[:-3])])
+listing.select(1)
 listing.paint()
 assert listing["row1_status"].text == "Recording now" and listing["rec_pill"].visible
+listing.options()
+assert "Delete" not in [o[0] for o in session.opened[-1][2]], "active recordings must not offer Delete"
+listing.option_chosen("delete")
+assert session.opened[-1][1] == "Still recording", "active recordings must also reject direct deletion"
 del session.nav.RecordTimer
 listing.paint()
 assert not listing["rec_pill"].visible
+
+# RED goes directly to the safe delete confirmation.
+listing["actions"].args[1]["red"]()
+assert session.opened[-1][1].startswith("Delete ") and listing.pending_delete is listing.chosen()
+listing.delete_chosen(None)
 
 # OK plays it; MENU offers more.
 listing.move(-1)
@@ -1030,11 +1141,47 @@ listing.options()
 assert [o[0] for o in session.opened[-1][2]] == ["Delete", "Cancel"], "nothing to start again when it hasn't been watched"
 listing.option_chosen("delete")
 assert session.opened[-1][0] == "GullionChoice" and session.opened[-1][1] == "Delete MasterChef?"
+# The confirmation keeps its original target even if a refresh changes selection.
+listing.move(1)
 listing.delete_chosen("delete")
 listing.background.wait()
 assert [r.title for r in listing.recordings][:2] == ["Fair City", "Nationwide"] and listing["count"].text.startswith("5 programmes")
 trash = os.path.join(folder, ".Trash")
-assert sorted(os.listdir(trash)) == ["20261026 2100 - BBC One NI - MasterChef.ts", "20261026 2100 - BBC One NI - MasterChef.ts.meta"]
+trash_group = os.path.join(trash, os.listdir(trash)[0])
+assert sorted(os.listdir(trash_group)) == ["20261026 2100 - BBC One NI - MasterChef.ts", "20261026 2100 - BBC One NI - MasterChef.ts.meta"], "the confirmed recording and companions stay together"
+
+# Cancelling must leave the files and queue untouched.
+listing.option_chosen("delete")
+cancelled = listing.pending_delete
+listing.delete_chosen(None)
+assert listing.pending_delete is None and not listing.deleting and os.path.exists(cancelled.path), "Keep it must leave the recording intact"
+
+# A timer starting during confirmation must prevent deletion.
+listing.option_chosen("delete")
+pending = listing.pending_delete
+session.nav.RecordTimer = types.SimpleNamespace(timer_list=[types.SimpleNamespace(state=2, Filename=pending.path[:-3])])
+listing.delete_chosen("delete")
+assert session.opened[-1][1] == "Still recording" and os.path.exists(pending.path), "confirmation must recheck active timers"
+del session.nav.RecordTimer
+
+# Queue the work without running it: disk work must not run on the UI thread.
+real_run = listing.background.run
+queued_deletes = []
+listing.background.run = lambda work, done: queued_deletes.append((work, done))
+listing.option_chosen("delete")
+listing.delete_chosen("delete")
+assert listing.deleting and len(queued_deletes) == 1 and os.path.exists(pending.path), "deletion must be queued in Background"
+opened_before = len(session.opened)
+listing.options()
+listing.ok()
+assert len(session.opened) == opened_before, "playback and repeat deletion must wait for the move"
+listing.background.run = real_run
+listing.deleted(None, OSError("drive unavailable"))
+assert not listing.deleting and session.opened[-1][1] == "Could not delete recording", "disk failures must show a recoverable message"
+listing.background.wait()
+listing.deleted(None, recordings.TrashError(trash_group, True))
+assert "restore" in session.opened[-1][3], "failed rollback must direct Tech Support to restore files"
+listing.background.wait()
 listing.leave()
 assert session.nav.played[-1] is not None, "live TV comes back"
 from_watch_again = recscreen.Recordings(session, False)
@@ -1043,7 +1190,178 @@ from_watch_again.layout()
 from_watch_again.background.wait()
 from_watch_again.leave()
 assert session.nav.played == [], "Watch again looks after live TV itself"
+# Recycle-bin collisions and partial moves, using real temporary files.
+with tempfile.TemporaryDirectory() as trash_test:
+	path = os.path.join(trash_test, "programme.ts")
+	def write_recording_files(payload):
+		for suffix in ("", ".meta", ".cuts"):
+			with open(path + suffix, "wb") as handle:
+				handle.write(payload)
+	write_recording_files(b"first recording")
+	recording = recordings.read(path)
+	first_trash = recordings.move_to_trash(recording)
+	write_recording_files(b"second recording")
+	second_trash = recordings.move_to_trash(recording)
+	assert first_trash != second_trash, "identical names must get separate recycle-bin folders"
+	assert open(os.path.join(first_trash, "programme.ts"), "rb").read() == b"first recording", "existing recycled recordings must remain intact"
+	assert open(os.path.join(second_trash, "programme.ts"), "rb").read() == b"second recording"
+	write_recording_files(b"restore me")
+	real_rename = recordings.os.rename
+	def fail_programme_move(source, destination):
+		if source == path:
+			raise OSError("simulated drive error")
+		real_rename(source, destination)
+	recordings.os.rename = fail_programme_move
+	try:
+		try:
+			recordings.move_to_trash(recording)
+			assert False, "a failed move must be reported"
+		except recordings.TrashError as error:
+			assert not error.recovery_needed, "successful rollback must restore all files"
+	finally:
+		recordings.os.rename = real_rename
+	assert all(open(path + suffix, "rb").read() == b"restore me" for suffix in ("", ".meta", ".cuts")), "rollback must preserve programme and companions"
+	assert len(os.listdir(os.path.join(trash_test, ".Trash"))) == 2, "successful rollback must remove its empty folder"
+	def fail_move_and_rollback(source, destination):
+		if source == path or destination == path + ".meta":
+			raise OSError("simulated persistent drive error")
+		real_rename(source, destination)
+	recordings.os.rename = fail_move_and_rollback
+	try:
+		try:
+			recordings.move_to_trash(recording)
+			assert False, "rollback failure must be reported"
+		except recordings.TrashError as error:
+			assert error.recovery_needed, "incomplete rollback must request recovery"
+	finally:
+		recordings.os.rename = real_rename
+	assert os.path.exists(path) and os.path.exists(path + ".cuts"), "files that can be restored must be restored"
+	remaining = [os.path.join(trash_test, ".Trash", name, "programme.ts.meta") for name in os.listdir(os.path.join(trash_test, ".Trash"))]
+	assert any(os.path.exists(name) and open(name, "rb").read() == b"restore me" for name in remaining), "failed rollback must keep the remaining companion recoverable"
 print("recordings screen ok")
+
+# Recording playback: transport, overlay lifecycle, missing metadata and subtitles.
+from GullionTV.recordings import player as recplayer  # noqa: E402
+player_session = e2stubs.fake_session()
+playing = e2stubs.PlaybackService()
+player_session.nav.getCurrentService = lambda: playing
+recording = recordings.Recording("/sample.ts", "Fair City", "", "Paul worries about the cafe. (HD, S)", 0, 1800, 720)
+player = recplayer.RecordingPlayer(player_session, e2stubs.eServiceReference(recording.service_ref), recording)
+for widget in ET.fromstring(player.skin).iter("widget"):
+	assert widget.get("name") in player, "recording player skin widgets must exist"
+player.layout()
+assert player.shown and player.skinName == "GullionRecordingPlayer", "playback must start with the Gullion overlay visible"
+assert player["programme"].text == "Fair City" and player["description"].text == "Paul worries about the cafe."
+assert player["recorded"].text.startswith("Recorded ") and " 1970 at " in player["recorded"].text
+assert player["progress"].value == 40 and player["elapsed"].text == "12:00 / 30:00" and player["remaining"].text == "18:00 left"
+assert player["control1_icon"].instance.pixmap.endswith("pause_40.png") and player["control3_icon"].visible, "pause must be central and subtitles offered when present"
+assert not player["progress_focus"].visible and "control1" not in player, "playback controls must use icons without text labels"
+assert player.controls_timer.active and player.progress_timer.active
+assert not player.hideTimer.active and not player.DimmingTimer.active, "stock hiding must not compete with the new overlay"
+del playing.seeker.moves[:]
+player.triggerResumeLogic()
+assert player.cuesheet_downloaded and player.hidden_after_resume, "silent resume must retain the stock cue-sheet lifecycle"
+assert playing.seeker.moves == [("absolute", 720 * 90000)] and not player_session.opened, "silent resume must seek without opening the stock question"
+player.activate_control()
+assert player.paused() and player["control1_icon"].instance.pixmap.endswith("play_40.png") and not player.controls_timer.active, "paused controls must remain visible"
+player.activate_control()
+assert not player.paused() and player.controls_timer.active
+player.skip(30)
+assert playing.seeker.moves[-1] == (1, 30 * 90000) and player["elapsed"].text.startswith("12:30"), "forward must seek exactly 30 seconds"
+player.skip(-30)
+assert playing.seeker.moves[-1] == (-1, 30 * 90000)
+playing.seeker.position = 10 * 90000
+player.skip(-30)
+assert playing.seeker.position == 0, "backward skip must stop at the beginning"
+playing.seeker.position = 1790 * 90000
+player.skip(30)
+assert playing.seeker.position == 1799 * 90000, "forward skip must stay inside the recording"
+player.toggle_pause()
+player.skip(-30)
+assert player.paused(), "skipping while paused must keep playback paused"
+player.play()
+player.hide_controls()
+player.activate_control()
+assert player.shown and not player.paused(), "OK with controls hidden must show them without pausing"
+playing.seeker.position = 720 * 90000
+player["GullionPlaybackActions"].args[1]["up"]()
+assert player.progress_selected and player["progress_focus"].visible, "UP must select the progress bar"
+player["GullionPlaybackActions"].args[1]["right"]()
+assert playing.seeker.moves[-1] == ("absolute", 738 * 90000), "RIGHT must scrub one percent while the bar is selected"
+player["GullionPlaybackActions"].args[1]["left"]()
+assert playing.seeker.moves[-1] == ("absolute", 720 * 90000)
+player["GullionPlaybackActions"].args[1]["down"]()
+assert not player.progress_selected and not player["progress_focus"].visible, "DOWN must return focus to the controls"
+player["GullionPlaybackActions"].args[1]["down"]()
+assert not player.shown, "DOWN from the transport row must hide the overlay"
+player.show_controls()
+player["GullionPlaybackActions"].args[1]["up"]()
+player["GullionPlaybackActions"].args[1]["up"]()
+assert not player.shown, "UP from the selected progress bar must hide the overlay"
+player.show_controls()
+player.move_control(-1)
+assert player.control == 0
+player.activate_control()
+assert playing.seeker.moves[-1] == (-1, 30 * 90000), "the left on-screen button must skip backward"
+player.move_control(2)
+player.activate_control()
+assert playing.seeker.moves[-1][0] == 1, "the right on-screen button must skip forward"
+player.move_control(1)
+player.activate_control()
+assert player_session.opened[-1][0] == "SoundAndSubtitles" and player_session.opened[-1][-1] == {"focus": "subtitles"}
+assert player.subtitle_dialog_open and not player.shown and not player.controls_timer.active
+subtitle_panel = soundsubs.SoundAndSubtitles(player_session, player, focus="subtitles")
+subtitle_panel.layout()
+subtitle_panel.move(1)
+subtitle_panel.choose()
+assert player.selected_subtitle == playing.tracks[0], "subtitle selection must reach the recording player's subtitle API"
+subtitle_panel.move(-1)
+subtitle_panel.choose()
+assert player.selected_subtitle is None, "subtitles must be switchable off"
+player.subtitles_closed()
+assert player.shown and player.controls_timer.active
+playing.tracks = []
+player.refresh_playback()
+assert not player["control3_icon"].visible and player.control == 1, "missing subtitle streams must hide the button and reset its focus"
+opened_before = len(player_session.opened)
+player.open_subtitles()
+assert len(player_session.opened) == opened_before
+playing.seeker.error = 1
+player.refresh_playback()
+assert player["progress"].value == 0 and player["elapsed"].text == "--:-- / 30:00", "invalid seek data must not invent progress"
+playing.seeker.error = 0
+playing.seeker.seekable = False
+moves_before = len(playing.seeker.moves)
+player.skip(30)
+assert len(playing.seeker.moves) == moves_before and "isn't available" in player["notice"].text
+playing.seeker.seekable = True
+playing.seeker.length = 0
+player.skip(30)
+assert len(playing.seeker.moves) == moves_before, "skip must wait for a reliable length"
+recording.duration = 0
+player.refresh_playback()
+assert player["elapsed"].text.endswith("/ --:--"), "unknown duration must have a clear fallback"
+player_session.nav.getCurrentService = lambda: None
+player.refresh_playback()
+assert not player["control3_icon"].visible and player["elapsed"].text == "--:-- / --:--", "service transitions must be safe"
+player.pauseService = None
+player.toggle_pause()
+assert "isn't available" in player["notice"].text, "missing image-specific controls must fail safely"
+player.back()
+assert not player.shown and player.closed is None, "BACK first hides the overlay"
+player.back()
+assert player.left == "quit" and player.saved_resume, "BACK while hidden must use the stock resume-saving exit"
+assert not player.progress_timer.active and not player.controls_timer.active and not player.onPlayStateChanged, "close must clean up timers and callbacks"
+assert recplayer.clock(3661) == "1:01:01"
+playback_map = ET.parse(os.path.join(e2stubs.PLUGIN_PARENT, "GullionTV", "keymap.xml")).find("map[@context='GullionPlaybackActions']")
+assert playback_map is not None
+assert all(key.get("mapto") in player["GullionPlaybackActions"].args[1] for key in playback_map), "every playback key must have a handler"
+assert player["GullionPlaybackActions"].args[2] < -1, "playback controls must take priority over stock key maps"
+for size in ui_icons.SIZES:
+	for name in ("pause", "play", "replay_30", "forward_30"):
+		for suffix in ("", "_on_light"):
+			assert os.path.isfile(os.path.join(ui_icons.FOLDER, "%s%s_%d.png" % (name, suffix, size))), "transport icons must cover each skin scale"
+print("recording player ok")
 
 # Recording drive check.
 assert recordings.storage("/nonexistent/movie") == (recordings.MISSING, 0)
@@ -1063,14 +1381,14 @@ session = e2stubs.fake_session()
 g = guide.Guide(session)
 g.layout()
 assert g.storage == recordings.MISSING
-assert g["hints"].text == "OK  Watch          INFO  More details", "no REC hint when the box can't record"
-assert g["footer"].text.endswith("OK to watch   ·   BACK for home") and g["storage_note"].text == "Recording isn't available"
+assert "REC: record" not in g["footer"].text, "no REC hint when the box cannot record"
+assert g["footer"].text.endswith("BACK: home") and g["storage_note"].text == "Recording isn't available"
 g.record_key()
 assert session.opened[-1][:2] == ("GullionChoice", "This box can't record right now")
 g.choice_made("record")
 assert session.opened[-1][:2] == ("GullionChoice", "This box can't record right now")
 g.next_event()
-assert g.selected_event().title == "Fair City" and g["hints"].text == "INFO  More details"
+assert g.selected_event().title == "Fair City" and "INFO: details" in g["footer"].text
 g.ok()
 assert session.opened[-1][2][0] == ("Don't record", "remove"), "a recording already set can still be cancelled"
 g.next_event()
@@ -1086,22 +1404,22 @@ assert session.opened[-1][:2] == ("GullionChoice", "The recording drive is full"
 recordings.free_space = lambda path: 5 * recordings.GB
 g = guide.Guide(session)
 g.layout()
-assert "REC  Record" in g["hints"].text and g["storage_note"].text == "Recording space is low"
+assert "REC: record" in g["footer"].text and g["storage_note"].text == "Recording space is low"
 
 recordings.mount_point = lambda path: "/"
 recordings.DEFAULT_FOLDER = tempfile.mkdtemp()
 plain = watchagain.WatchAgain(session, {})
 plain.layout()
 plain.background.wait()
-assert plain["slot0_empty"].text == "Recording isn't set up on this box. Ask Tech Support to check the recording drive."
+assert plain["slot1_empty"].text == "Recording isn't set up on this box. Ask Tech Support to check the recording drive."
 recordings.mount_point = lambda path: "/media/hdd"
 plain = watchagain.WatchAgain(session, {})
 plain.layout()
 plain.background.wait()
-assert plain["slot0_empty"].text.startswith("No recordings yet. Press REC")
+assert plain["slot1_empty"].text.startswith("No recordings yet. Press REC")
 print("recording drive ok")
 
-# Plex pictures: landscape for the Watch again rows, posters as a fallback.
+# Plex pictures: landscape for Continue watching and posters for Recently added.
 recordings.DEFAULT_FOLDER = folder
 recordings.mount_point = lambda path: "/media/hdd"
 recordings.free_space = lambda path: 500 * recordings.GB
@@ -1113,15 +1431,18 @@ session = e2stubs.fake_session()
 screen = watchagain.WatchAgain(session, sample_plex.configured_settings())
 screen.layout()
 screen.background.wait()
+screen.choose_filter(2)
 recent = dict((tile.title, tile) for tile in screen.sections[1]["tiles"])
-assert recent["Brooklyn"].image is None and recent["Brooklyn"].poster, "only a poster, so it sits at the left"
-assert all(tile.badge == "Plex" for tile in screen.sections[1]["tiles"])
+assert recent["Brooklyn"].image == recent["Brooklyn"].poster, "a recent item must fill its portrait card with its poster"
+assert all(tile.badge == "Movie" for tile in screen.sections[1]["tiles"])
+screen.choose_filter(0)
 continuing = screen.sections[0]["tiles"]
-assert [tile.badge for tile in continuing] == ["", "Plex", "Plex"], "recordings and Plex told apart"
+assert [tile.badge for tile in continuing] == ["Recorded TV", "Movie", "TV Show"], "each media type must be clear"
 screen.paint()
-assert screen["slot0_tile1_badge"].text == "Plex" and screen["slot0_tile1_badge"].visible and not screen["slot0_tile0_badge"].visible
+assert screen["slot0_tile1_badge"].text == "Movie" and screen["slot0_tile1_badge"].visible and screen["slot0_tile0_badge"].text == "Recorded TV"
+screen.choose_filter(2)
 brooklyn = [i for i, tile in enumerate(screen.sections[1]["tiles"]) if tile.title == "Brooklyn"][0]
-assert screen["slot1_tile%d_poster" % brooklyn].visible and not screen["slot1_tile%d_image" % brooklyn].visible
+assert screen["slot1_tile%d_image" % brooklyn].visible and not screen["slot1_tile%d_poster" % brooklyn].visible
 print("plex pictures ok")
 
 # Recording pictures.
@@ -1349,7 +1670,7 @@ for folder, _, files in os.walk(os.path.join(os.path.dirname(os.path.abspath(__f
 
 # Fitting other skin sizes: every screen designed at 1920x1080 must fit the
 # skin's own size once scaled (MetrixHD and the default skin are 1280x720).
-screens = [home.GullionHome, guide.Guide, watchagain.WatchAgain, watchagain.Recordings, webcams.WebcamList,
+screens = [recplayer.RecordingPlayer, home.GullionHome, guide.Guide, guide.ChannelLists, watchagain.WatchAgain, watchagain.Recordings, webcams.WebcamList,
 	webcams.WebcamPlayer, plexlibrary.PlexLibrary, plexsetup.PlexSetup, plexsetup.OptionList, plexsetup.PlexLink,
 	popups.GullionChoice, popups.EventDetails, pin.PinEntry, placeholder.ComingSoon, setup.GullionTVSetup]
 assert scale.factor() == 1.0 and scale.skin(home.GullionHome.skin) == home.GullionHome.skin, "full HD is drawn exactly as designed"

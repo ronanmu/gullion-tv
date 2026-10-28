@@ -17,7 +17,6 @@ from .tv.guide import Guide
 from .tv.serviceinfo import remaining
 from .ui.pin import PinChooser, TechSupportPin
 from .ui.placeholder import ComingSoon
-from .recordings.screen import Recordings
 from .watchagain import WatchAgain
 from .ui.background import Background
 from .weather import forecast
@@ -30,7 +29,7 @@ from .ui import icons, live, scale, tiles
 CARDS = [
 	("Live TV", "Your channels", "red", "live_tv"),
 	("TV Guide", "Tonight and this week", "green", "tv_guide"),
-	("Recordings", "Recorded TV", "yellow", "recordings"),
+	("Media", "Recorded TV & Plex", "yellow", "recordings"),
 	("Webcams", "Live cameras", "blue", "webcams"),
 ]
 SETTINGS = len(CARDS)
@@ -109,8 +108,6 @@ class GullionHome(Screen):
 			self["card%d_title" % i] = Label(card[0])
 			self["card%d_sub" % i] = Label(card[1])
 			self["card%d_icon" % i] = Pixmap()
-		if plex.is_configured(plex.load_settings()):
-			self["card2_sub"].setText("Recorded TV & Plex")
 
 		self.selected = 0
 		self.last_card = 0
@@ -174,11 +171,7 @@ class GullionHome(Screen):
 		elif index == 1:
 			self.session.openWithCallback(self.guide_closed, Guide)
 		elif index == 2:
-			# Without Plex there's only recorded TV, so go straight to the list of recordings.
-			if plex.is_configured(plex.load_settings()):
-				self.session.open(WatchAgain)
-			else:
-				self.session.open(Recordings)
+			self.session.open(WatchAgain)
 		elif index == 3:
 			self.session.open(WebcamList)
 		elif index == SETTINGS:
@@ -298,4 +291,3 @@ class GullionHome(Screen):
 
 def _clock(timestamp):
 	return time.strftime("%H:%M", time.localtime(timestamp))
-

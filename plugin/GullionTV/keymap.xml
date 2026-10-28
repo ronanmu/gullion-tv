@@ -3,4 +3,39 @@
 	<map context="GullionLiveActions">
 		<key id="KEY_STOP" mapto="stop" flags="m" />
 	</map>
+	<!-- Recording controls consume both key edges before the stock player maps. -->
+	<map context="GullionPlaybackActions">
+		<key id="KEY_LEFT" mapto="left" flags="mr" />
+		<key id="KEY_LEFT" mapto="release" flags="bl" />
+		<key id="KEY_RIGHT" mapto="right" flags="mr" />
+		<key id="KEY_RIGHT" mapto="release" flags="bl" />
+		<key id="KEY_OK" mapto="ok" flags="m" />
+		<key id="KEY_OK" mapto="release" flags="blr" />
+		<key id="KEY_EXIT" mapto="back" flags="m" />
+		<key id="KEY_EXIT" mapto="release" flags="blr" />
+		<key id="KEY_BACK" mapto="back" flags="m" />
+		<key id="KEY_BACK" mapto="release" flags="blr" />
+		<key id="KEY_STOP" mapto="stop" flags="m" />
+		<key id="KEY_STOP" mapto="release" flags="blr" />
+		<key id="KEY_PLAY" mapto="play" flags="m" />
+		<key id="KEY_PLAY" mapto="release" flags="blr" />
+		<key id="KEY_PAUSE" mapto="pause" flags="m" />
+		<key id="KEY_PAUSE" mapto="release" flags="blr" />
+		<key id="KEY_PLAYPAUSE" mapto="pause" flags="m" />
+		<key id="KEY_PLAYPAUSE" mapto="release" flags="blr" />
+		<key id="KEY_REWIND" mapto="rewind" flags="m" />
+		<key id="KEY_REWIND" mapto="release" flags="blr" />
+		<key id="KEY_FASTFORWARD" mapto="forward" flags="m" />
+		<key id="KEY_FASTFORWARD" mapto="release" flags="blr" />
+		<key id="KEY_SUBTITLE" mapto="subtitles" flags="m" />
+		<key id="KEY_SUBTITLE" mapto="release" flags="blr" />
+		<key id="KEY_YELLOW" mapto="subtitles" flags="m" />
+		<key id="KEY_YELLOW" mapto="release" flags="blr" />
+		<key id="KEY_INFO" mapto="show" flags="m" />
+		<key id="KEY_INFO" mapto="release" flags="blr" />
+		<key id="KEY_UP" mapto="up" flags="m" />
+		<key id="KEY_UP" mapto="release" flags="blr" />
+		<key id="KEY_DOWN" mapto="down" flags="m" />
+		<key id="KEY_DOWN" mapto="release" flags="blr" />
+	</map>
 </keymap>

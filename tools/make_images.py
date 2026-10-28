@@ -29,9 +29,10 @@ ICONS = {
 	"sign_language": "sign_language", "repeat": "replay",
 	"satellite": "satellite_alt", "terrestrial": "cell_tower", "cable": "cable", "internet": "language",
 	"sound": "volume_up", "subtitles_off": "subtitles_off", "check": "check",
+	"play": "play_arrow", "pause": "pause", "forward_30": "forward_30", "replay_30": "replay_30",
 }
 # Drawn dark too, for use on a highlighted (light) row.
-ON_LIGHT = ("check", "audio_description", "subtitles", "subtitles_off")
+ON_LIGHT = ("check", "audio_description", "subtitles", "subtitles_off", "play", "pause", "forward_30", "replay_30")
 ICON_SIZES = (20, 27, 40, 80)  # 40 px at 1920 wide
 
 
@@ -140,6 +141,11 @@ def material_icons(folder, out):
 
 
 if __name__ == "__main__":
+	if "--material-only" in sys.argv:
+		if not os.environ.get("MATERIAL"):
+			sys.exit("Set MATERIAL to the Material Symbols font folder.")
+		material_icons(os.environ["MATERIAL"], os.path.join(OUT, "icons"))
+		sys.exit(0)
 	if not os.environ.get("MATERIAL") or not os.environ.get("MDI") or not os.environ.get("REC_FONT"):
 		sys.exit("Set MATERIAL and MDI to the icon font folders and REC_FONT to a bold font; see the notes above ICONS, MDI_CARD_ICONS and PILL.")
 	material_icons(os.environ["MATERIAL"], os.path.join(OUT, "icons"))

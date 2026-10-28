@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Picture tiles shared by Watch again, All recordings and the Plex library views.
+"""Picture tiles shared by Media, Recorded TV and the Plex library views.
 
 A tile is a picture with a name and one line under it. It can also carry a
 small text badge (Plex, Watched), a channel logo badge, and a thin bar showing

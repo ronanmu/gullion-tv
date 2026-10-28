@@ -25,7 +25,7 @@ The text is purposefully large and high-contrast, and the wording is in plain-En
 | ------- | -------- | ----------- |
 | Live TV | RED button | Show broadcast channels setup to any tuners in the box |
 | TV Guide | GREEN button | View the EPG for any bouquets configured on the box |
-| Recordings | YELLOW button | List any broadcasts recorded on the box, also Plex TV or Movie libraries, if configured |
+| Media | YELLOW button | Continue recorded TV, Plex movies and Plex TV shows, or browse recently added items |
 | Webcams | BLUE button | View any webcam or other livestreams setup |
 
 
@@ -71,7 +71,7 @@ assistant, working from the owner's requirements and review.
   Recordings would list the series being recorded, with a way to stop one. Needs checking on a box for the
   AutoTimer version.
 - Opening a film or programme from Plex and playing it.
-- The box's recording player in the Gullion TV style.
+- Verify the new Gullion TV recording playback controls on both boxes (implemented; offline checks and renders only).
 
 ## Documentation
 

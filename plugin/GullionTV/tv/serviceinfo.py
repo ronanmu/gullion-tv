@@ -69,10 +69,10 @@ def channel_numbers(lists):
 
 # The access codes broadcasters put at the end of a description: "... (HD, S, AD, R)"
 # on Saorview, "... [S,AD] [HD]" on Freesat.
-CODES = ("HD", "UHD", "W", "S", "AD", "SL", "R")
+CODES = ("HD", "UHD", "W", "S", "A", "AD", "SL", "R")
 # The ones shown as icons, and the icon for each. HD comes from the channel itself.
-BADGES = ("S", "AD", "SL", "R")
-BADGE_ICONS = {"S": "subtitles", "AD": "audio_description", "SL": "sign_language", "R": "repeat"}
+BADGES = ("S", "A", "AD", "SL", "R")
+BADGE_ICONS = {"S": "subtitles", "A": "audio_description", "AD": "audio_description", "SL": "sign_language", "R": "repeat"}
 _GROUP_AT_END = re.compile(r"\s*[\(\[]\s*([A-Z]{1,3}(?:\s*,\s*[A-Z]{1,3})*)\s*[\)\]]\s*$")
 
 

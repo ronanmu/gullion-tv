@@ -13,7 +13,7 @@ The cards are in the same order as the remote's colour buttons, and each colour 
 |---|---|---|
 | Live TV | RED | full-screen TV, back on the channel that was on when Home opened |
 | TV Guide | GREEN | the [TV Guide](tv-guide.md) |
-| Recordings | YELLOW | the [Recordings](recordings.md) list, or [Watch again](plex.md) once Plex is set up |
+| Media | YELLOW | recorded TV and, when configured, Plex movies and TV shows |
 | Webcams | BLUE | the [Webcams](webcams.md) grid |
 
 ![Home with Webcams chosen](../images/02-home-webcams.png)
@@ -48,6 +48,6 @@ See [Tech Support](../setup/tech-support.md) for the PIN and what it protects.
 
 ## With Plex
 
-Once Plex is set up, the Recordings card is subtitled "Recorded TV & Plex".
+The Media card opens the same two-row screen whether or not Plex is set up. Plex filters explain when Plex is unavailable.
 
 ![Home with Plex set up](../images/25-home-with-plex.png)

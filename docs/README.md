@@ -14,7 +14,7 @@ marked as such.
 - [TV Guide](features/tv-guide.md): the grid, moving around, recording from the guide
 - [Recordings](features/recordings.md): the list of recordings, sorting, resuming and deleting
 - [Webcams](features/webcams.md): local cameras and church services
-- [Plex](features/plex.md): Watch again, Films and TV programmes, once Plex is set up
+- [Plex and Media](features/plex.md): recorded TV, movies and TV shows in one filtered screen
 
 ## Setting it up
 

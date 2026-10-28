@@ -3,10 +3,13 @@
 from enigma import gRGB
 from Components.ActionMap import ActionMap
 from Components.Label import Label
+from Components.Pixmap import Pixmap
+from Tools.LoadPixmap import LoadPixmap
 from Screens.Screen import Screen
 
 from .. import theme
-from . import scale
+from . import icons, scale
+from ..tv import serviceinfo
 
 MAX_OPTIONS = 3
 _POPUP = {"card": theme.POPUP, "border": theme.POPUP_BORDER, "frame_900_520": theme.frame(900, 520), "frame_1300_700": theme.frame(1300, 700), "text": theme.TEXT, "muted": theme.TEXT_MUTED}
@@ -73,21 +76,38 @@ class EventDetails(Screen):
 	<screen name="GullionEventDetails" position="center,center" size="1300,700" flags="wfNoBorder" backgroundColor="%(card)s">
 		%(frame_1300_700)s
 		<widget name="heading" position="60,50" size="1180,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
-		<widget name="when" position="60,120" size="1180,44" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
+		<widget name="when" position="60,120" size="840,44" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
+		%(icons)s
 		<widget name="description" position="60,190" size="1180,420" font="Regular;30" foregroundColor="%(text)s" transparent="1" />
 		<eLabel text="BACK to close" position="60,636" size="1180,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
-	</screen>""" % dict(_POPUP, accent=theme.ACCENT)
+	</screen>""" % dict(_POPUP, accent=theme.ACCENT, icons="".join(
+		'<widget name="icon%d" position="%d,132" size="40,40" alphatest="blend" />'
+		% (i, 1200 - i * 52) for i in range(6)))
 
 	skin = scale.skin(skin)
 
-	def __init__(self, session, heading, when, description):
+	def __init__(self, session, heading, when, description, channel_ref=""):
 		Screen.__init__(self, session)
 		self.setTitle(heading)
 		self["heading"] = Label(heading)
 		self["when"] = Label(when)
-		self["description"] = Label(description or "No more details for this programme.")
+		self["description"] = Label(serviceinfo.split_codes(description)[0] or "No more details for this programme.")
+		# This is the selected channel, which may differ from the live preview.
+		self.icon_names = serviceinfo.icon_row(channel_ref, -1, description)
+		for i in range(6):
+			self["icon%d" % i] = Pixmap()
+		self.onLayoutFinish.append(self.draw_icons)
 		self["actions"] = ActionMap(["OkCancelActions", "EPGSelectActions"], {
 			"ok": self.close,
 			"cancel": self.close,
 			"info": self.close,
 		}, -1)
+
+	def draw_icons(self):
+		for i in range(6):
+			widget = self["icon%d" % i]
+			if i < len(self.icon_names) and widget.instance is not None:
+				widget.instance.setPixmap(LoadPixmap(icons.icon_path(self.icon_names[-1 - i]), cached=True))
+				widget.show()
+			else:
+				widget.hide()

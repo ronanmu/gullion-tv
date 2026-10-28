@@ -13,7 +13,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
   settings.py            the box settings: on/off, channel banner, Tech Support PIN
   setup.py               Tech Support settings screen
   home.py                the Home screen
-  watchagain.py          Watch again, when Plex is set up (recordings and Plex together)
+  watchagain.py          Media: two filtered rows of recorded TV and Plex
   weather/
     forecast.py          the weather line: Met Éireann's forecast, with Open-Meteo as a backup
   theme.py               shared colours
@@ -21,7 +21,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
                          icons/ holds Material Symbols and Material Design Icons, including the red
                          record mark in the guide (see icons/NOTICE)
   ui/                    shared building blocks
-    tiles.py             picture tiles for Watch again and the Plex views
+    tiles.py             picture panels for Media and the Plex views
     popups.py            themed choice and programme-details pop-ups
     pin.py               PIN prompts, including choosing the Tech Support PIN on first use
     placeholder.py       stand-in screen for parts still to come

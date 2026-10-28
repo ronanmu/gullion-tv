@@ -461,6 +461,22 @@ def main():
 	tv_guide = guide.Guide(e2stubs.fake_session())
 	tv_guide.layout()
 	shots.append(("07-guide-now", render(tv_guide)))
+	selector = guide.ChannelLists(e2stubs.fake_session(), [(item[1], i) for i, item in enumerate(tv_guide.lists)], tv_guide.list_index)
+	selector.layout()
+	shots.append(("07b-guide-channel-lists", render(selector, render(tv_guide))))
+	# Show a numbering gap at a bouquet boundary without changing the other samples.
+	original_lists = guide.epg.channel_lists
+	try:
+		channels = tv_guide.channels[:8]
+		guide.epg.channel_lists = lambda: [
+			("saor", "Saorview", [guide.epg.Channel(c.ref, c.name, 17 + i) for i, c in enumerate(channels[:4])]),
+			("free", "Freesat", [guide.epg.Channel(c.ref, c.name, 101 + i) for i, c in enumerate(channels[4:])])]
+		boundary = guide.Guide(e2stubs.fake_session())
+		boundary.layout()
+		boundary.move_row(3)
+		shots.append(("07c-guide-bouquet-boundary", render(boundary)))
+	finally:
+		guide.epg.channel_lists = original_lists
 
 	tv_guide.next_event()
 	shots.append(("08-guide-will-record", render(tv_guide)))
@@ -477,11 +493,12 @@ def main():
 	tv_guide = guide.Guide(e2stubs.fake_session())
 	tv_guide.layout()
 	event = tv_guide.selected_event()
-	details = popups.EventDetails(e2stubs.fake_session(), event.title, tv_guide.when(event), event.description)
+	details = popups.EventDetails(e2stubs.fake_session(), event.title, tv_guide.when(event), event.description + " (HD, S, A, R)", tv_guide.channels[tv_guide.row].ref)
+	details.layout()
 	shots.append(("11-guide-details", render(details, render(tv_guide))))
 
 	tv_guide.shift_day(1)
-	tv_guide.next_list()
+	tv_guide.list_chosen(1)
 	shots.append(("12-guide-saorview-tomorrow", render(tv_guide)))
 
 	banners = [
@@ -609,11 +626,8 @@ def main():
 	again.background.wait()
 	again.paint()
 	shots.append(("20-watch-again", render(again)))
-	again.move_across(1)
+	again.choose_filter(2)
 	again.move_down(1)
-	again.move_down(1)
-	again.move_down(1)
-	again.move_across(2)
 	shots.append(("21-watch-again-browse", render(again)))
 
 	# Recordings: what Watch again opens without Plex.
@@ -639,6 +653,31 @@ def main():
 		"It goes to the recycle bin, so Tech Support can bring it back.")
 	ask.layout()
 	shots.append(("24-delete-recording", render(ask, no_picture)))
+
+	from GullionTV.recordings import player as recplayer
+	play_session = e2stubs.fake_session()
+	play_service = e2stubs.PlaybackService(position=720, length=1800)
+	play_session.nav.getCurrentService = lambda: play_service
+	recording = watchagain.recordings.list_recordings(folder)[0]
+	playback = recplayer.RecordingPlayer(play_session, e2stubs.eServiceReference(recording.service_ref), recording)
+	playback.layout()
+	picture = scene("studio", 1920, 1080)
+	shots.append(("24b-recording-playing", render(playback, picture)))
+	playback.select_progress()
+	shots.append(("24f-recording-scrubbing", render(playback, picture)))
+	playback.select_controls()
+	playback.toggle_pause()
+	shots.append(("24c-recording-paused", render(playback, picture)))
+	playback.play()
+	play_service.tracks = []
+	playback.refresh_playback()
+	shots.append(("24d-recording-no-subtitles", render(playback, picture)))
+	play_service.tracks = [(0, 101, 0, 0, "eng")]
+	subtitle_choices = soundsubs.SoundAndSubtitles(play_session, playback, focus="subtitles")
+	subtitle_choices.layout()
+	shots.append(("24e-recording-subtitles", render(subtitle_choices, picture)))
+	playback.cleanup()
+
 
 	original_load = plex.load_settings
 	plex.load_settings = lambda path=None: sample_plex.configured_settings()

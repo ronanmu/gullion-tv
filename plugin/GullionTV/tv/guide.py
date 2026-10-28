@@ -62,24 +62,6 @@ def _day_bar_skin():
 	return "".join(parts)
 
 
-HINTS = 3
-HINT_X, HINT_Y, HINT_W, KEY_W, KEY_H = 340, 386, 330, 96, 40
-
-
-def _key_hints_skin():
-	"""OK, REC and INFO drawn as outlined keys, each followed by what it does."""
-	parts = []
-	for i in range(HINTS):
-		x = HINT_X + i * HINT_W
-		parts.append('<widget name="hint%d_edge" position="%d,%d" size="%d,%d" backgroundColor="%s" zPosition="1" />'
-			% (i, x, HINT_Y, KEY_W, KEY_H, theme.TEXT_MUTED))
-		parts.append('<widget name="hint%d_key" position="%d,%d" size="%d,%d" font="Regular;24" halign="center" valign="center" '
-			'foregroundColor="%s" backgroundColor="%s" zPosition="2" />' % (i, x + 2, HINT_Y + 2, KEY_W - 4, KEY_H - 4, theme.TEXT, theme.BACKGROUND))
-		parts.append('<widget name="hint%d" position="%d,%d" size="%d,%d" font="Regular;26" valign="center" foregroundColor="%s" transparent="1" />'
-			% (i, x + KEY_W + 14, HINT_Y, HINT_W - KEY_W - 24, KEY_H, theme.TEXT))
-	return "".join(parts)
-
-
 CODE_ICONS = 4  # subtitles, audio description, sign language, repeat
 CODE_ICONS_RIGHT = 1320
 
@@ -90,12 +72,36 @@ def _code_icons_skin():
 		% (i, CODE_ICONS_RIGHT - 40 - i * 52) for i in range(CODE_ICONS))
 
 
+class ChannelLists(GullionChoice):
+	"""Choose an enabled channel list, with at most three choices on each page."""
+
+	skin = GullionChoice.skin.replace("GullionChoice", "GullionChannelLists")
+
+	def __init__(self, session, choices, current=0):
+		self.choices = choices
+		self.position = max(0, min(current, len(choices) - 1))
+		GullionChoice.__init__(self, session, "Channel lists", choices)
+		self.update_page()
+
+	def move(self, step):
+		self.position = max(0, min(len(self.choices) - 1, self.position + step))
+		self.update_page()
+		self.paint()
+
+	def update_page(self):
+		start = self.position // 3 * 3
+		self.options = self.choices[start:start + 3]
+		self.selected = self.position - start
+		self["detail"].setText("UP / DOWN to choose   ·   %d of %d" % (self.position + 1, len(self.choices)))
+		for i in range(3):
+			self["option%d" % i].setText(self.options[i][0] if i < len(self.options) else "")
+
+
 class Guide(Screen):
 	skin = """
 	<screen name="GullionGuide" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
 		<eLabel text="TV Guide" position="90,44" size="500,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
-		<eLabel position="760,67" size="18,18" backgroundColor="%(yellow)s" />
-		<widget name="list_name" position="792,50" size="520,50" font="Regular;32" foregroundColor="%(text)s" transparent="1" />
+		<widget name="list_name" position="90,512" size="380,40" font="Regular;28" noWrap="1" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
 			<convert type="ClockToText">Format:%%a %%d %%b   %%H:%%M</convert>
 		</widget>
@@ -108,7 +114,6 @@ class Guide(Screen):
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
 		<widget name="rec_pill" position="1224,213" size="96,40" alphatest="blend" zPosition="2" />
 		<widget name="ev_desc" position="340,264" size="980,110" font="Regular;28" foregroundColor="%(text)s" transparent="1" />
-		%(key_hints)s
 
 		<widget source="session.VideoPicture" render="Pig" position="1370,150" size="460,259" zPosition="1" backgroundColor="#ff000000" />
 		<widget name="pig_name" position="1370,371" size="300,38" font="Regular;24" foregroundColor="%(text)s" backgroundColor="%(bg)s" zPosition="3" />
@@ -120,12 +125,12 @@ class Guide(Screen):
 		<widget name="grid" position="%(gx)d,%(gy)d" size="%(gw)d,%(gh)d" backgroundColor="%(bg)s" scrollbarMode="showNever" transparent="1" />
 		<widget name="now_line" position="%(gx)d,%(ny)d" size="4,%(nh)d" backgroundColor="%(live)s" zPosition="5" />
 
-		<widget name="footer" position="90,1022" size="1200,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
-		<widget name="storage_note" position="1300,1022" size="530,36" font="Regular;24" halign="right" foregroundColor="%(yellow)s" transparent="1" />
+		<widget name="footer" position="90,1022" size="1740,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="storage_note" position="340,386" size="980,36" font="Regular;24" foregroundColor="%(yellow)s" transparent="1" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "card": theme.CARD,
 		"accent": theme.ACCENT, "red": theme.KEY_RED, "yellow": theme.KEY_YELLOW, "live": theme.LIVE,
-		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(), "key_hints": _key_hints_skin(), "code_icons": _code_icons_skin(),
+		"daybar_bg": theme.DAY_BAR, "daybar_markup": _day_bar_skin(), "code_icons": _code_icons_skin(),
 		"gx": GRID_X, "gy": GRID_Y, "gw": GRID_W, "gh": ROWS * ROW_H, "ry": RULER_Y,
 		"ny": NOW_Y, "nh": GRID_Y - NOW_Y,
 	}
@@ -138,13 +143,10 @@ class Guide(Screen):
 		Screen.__init__(self, session)
 		self.setTitle("TV Guide")
 
-		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_desc", "hints", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
+		for name in ("list_name", "chan_num", "ev_title", "ev_time", "ev_desc", "pig_name", "now_line", "picon_fallback", "footer", "storage_note", "number_entry"):
 			self[name] = Label()
 		for i in range(CODE_ICONS):
 			self["code%d" % i] = Pixmap()
-		for i in range(HINTS):
-			for name in ("hint%d_edge", "hint%d_key", "hint%d"):
-				self[name % i] = Label()
 		self["picon"] = Pixmap()
 		self["rec_pill"] = Pixmap()  # REC is drawn into the picture, in bold
 		self.rec_icon = LoadPixmap(rec_icon_path(), cached=True)
@@ -161,10 +163,12 @@ class Guide(Screen):
 
 		# Checked each time the guide opens: is there a drive to record to?
 		self.storage, free = recordings.storage()
-		self.lists = epg.channel_lists()
-		self.list_index = min(Guide.last_list, max(0, len(self.lists) - 1))
-		self.row = 0
-		self.top = 0
+		self.lists = [item for item in epg.channel_lists() if item[2]]
+		self.channel_rows = [(index, channel) for index, item in enumerate(self.lists) for channel in item[2]]
+		self.all_channels = [channel for index, channel in self.channel_rows]
+		last_list = min(Guide.last_list, max(0, len(self.lists) - 1))
+		self.row = sum(len(item[2]) for item in self.lists[:last_list])
+		self.top = max(0, min(self.row, len(self.channels) - ROWS))
 		self.selected_eid = None
 		self.cache = {}
 		self.now = time.time()
@@ -193,7 +197,7 @@ class Guide(Screen):
 			"prevService": lambda: self.move_row(ROWS),
 			"red": lambda: self.shift_day(-1),
 			"green": lambda: self.shift_day(1),
-			"yellow": self.next_list,
+			"yellow": self.choose_list,
 			"blue": self.jump_to_now,
 			"ok": self.ok,
 			"info": self.show_details,
@@ -212,7 +216,11 @@ class Guide(Screen):
 
 	@property
 	def channels(self):
-		return self.lists[self.list_index][2] if self.lists else []
+		return self.all_channels
+
+	@property
+	def list_index(self):
+		return self.channel_rows[self.row][0] if self.channel_rows else 0
 
 	@property
 	def window_end(self):
@@ -258,13 +266,12 @@ class Guide(Screen):
 
 	def show_channel(self, wanted):
 		"""Put the first channel wanted(channel) is true for on screen, in whichever list has it."""
-		for index, (bouquet, name, channels) in enumerate(self.lists):
-			for row, channel in enumerate(channels):
-				if wanted(channel):
-					self.list_index, self.row = index, row
-					self.top = max(0, min(row - 2, len(channels) - ROWS))
-					self.select_at(self.focus)
-					return True
+		for row, channel in enumerate(self.channels):
+			if wanted(channel):
+				self.row = row
+				self.top = max(0, min(row - 2, len(self.channels) - ROWS))
+				self.select_at(self.focus)
+				return True
 		return False
 
 	# Channel numbers
@@ -318,6 +325,7 @@ class Guide(Screen):
 			self.top = self.row
 		elif self.row >= self.top + ROWS:
 			self.top = self.row - ROWS + 1
+		Guide.last_list = self.list_index
 		self.select_at(self.focus)
 		self.redraw()
 
@@ -376,12 +384,17 @@ class Guide(Screen):
 		self.select_at(self.focus)
 		self.redraw()
 
-	def next_list(self):
-		if len(self.lists) < 2:
+	def choose_list(self):
+		if self.lists:
+			self.session.openWithCallback(self.list_chosen, ChannelLists,
+				[(item[1], index) for index, item in enumerate(self.lists)], self.list_index)
+
+	def list_chosen(self, index=None):
+		if index is None or not 0 <= index < len(self.lists):
 			return
-		self.list_index = (self.list_index + 1) % len(self.lists)
-		Guide.last_list = self.list_index
-		self.row = self.top = 0
+		self.row = sum(len(item[2]) for item in self.lists[:index])
+		self.top = min(self.row, max(0, len(self.channels) - ROWS))
+		Guide.last_list = index
 		self.select_at(self.focus)
 		self.redraw()
 
@@ -446,7 +459,7 @@ class Guide(Screen):
 	def show_details(self):
 		event = self.selected_event()
 		if event is not None:
-			self.session.open(EventDetails, event.title, self.when(event), serviceinfo.split_codes(event.description)[0])
+			self.session.open(EventDetails, event.title, self.when(event), event.description, self.channels[self.row].ref)
 
 	# Drawing
 
@@ -470,7 +483,7 @@ class Guide(Screen):
 
 	def draw_footer(self):
 		able = recordings.can_record(self.storage)
-		self["footer"].setText("Arrows to move   ·   CH + / - to page   ·   OK to watch%s   ·   BACK for home" % (" or record" if able else ""))
+		self["footer"].setText("Arrows: move   ·   CH +/-: page   ·   OK: watch / options%s   ·   INFO: details   ·   BACK: home" % ("   ·   REC: record" if able else ""))
 		self["storage_note"].setText({
 			recordings.LOW: "Recording space is low",
 			recordings.FULL: "The recording drive is full",
@@ -555,10 +568,9 @@ class Guide(Screen):
 		self.draw_picon(channel)
 		if event is None:
 			self["ev_title"].setText("No programme information" if channel else "No channels yet")
-			for name in ("ev_time", "ev_desc", "hints"):
+			for name in ("ev_time", "ev_desc"):
 				self[name].setText("")
 			self.draw_rec(False)
-			self.draw_hints([])
 			self.draw_codes("")
 			return
 		self["ev_title"].setText(event.title)
@@ -566,15 +578,7 @@ class Guide(Screen):
 		# "(HD, S)" and "[S,AD] [HD]" become icons rather than text.
 		self["ev_desc"].setText(serviceinfo.split_codes(event.description)[0])
 		self.draw_codes(event.description)
-		airing = event.airing(self.now)
 		self.draw_rec(not event.over(self.now) and bool(epg.find_timer(self.session, channel.ref, event)))
-		able = recordings.can_record(self.storage) and not event.over(self.now)
-		hints = [("OK", "Watch")] if airing else ([("OK", "Record options")] if able else [])
-		if able:
-			hints.append(("REC", "Record"))
-		hints.append(("INFO", "More details"))
-		self["hints"].setText("          ".join("%s  %s" % hint for hint in hints))
-		self.draw_hints(hints)
 
 	def draw_rec(self, recording):
 		"""A red REC pill for a programme that's recording or set to record."""
@@ -597,17 +601,6 @@ class Guide(Screen):
 				widget.show()
 			else:
 				widget.hide()
-
-	def draw_hints(self, hints):
-		for i in range(HINTS):
-			key, label = hints[i] if i < len(hints) else ("", "")
-			self["hint%d_key" % i].setText(key)
-			self["hint%d" % i].setText(label)
-			for name in ("hint%d_edge", "hint%d_key"):
-				if key:
-					self[name % i].show()
-				else:
-					self[name % i].hide()
 
 	def draw_picon(self, channel):
 		"""The channel's logo, or its name on a card when there's no picon for it."""

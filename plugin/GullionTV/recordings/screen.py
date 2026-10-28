@@ -3,10 +3,9 @@
 details of the one chosen beside it.
 
 	UP/DOWN  choose (CH+/- a page at a time)    OK    watch, or carry on from where it was left
-	BLUE     change the order                    MENU  more options: from the start, delete
+	BLUE     change the order                    RED   delete
 
-Without Plex, Watch again on Home opens this straight away; with Plex it's
-Watch again's "All recordings".
+MENU from Media's All or Recorded TV filter opens this full list.
 """
 import time
 
@@ -70,19 +69,12 @@ def make_frames(background, found, reread):
 
 
 def play_recording(session, recording, done, from_start=False):
-	from Screens.InfoBar import MoviePlayer
-
-	class RecordingPlayer(MoviePlayer):
-		"""The box's player, but stopping always goes straight back here, never to the
-		stock recordings list or an 'are you sure?' question."""
-
-		def handleLeave(self, how, *args):
-			MoviePlayer.handleLeave(self, "quit", *args)
+	from .player import RecordingPlayer
 
 	if from_start:
 		# The player offers to carry on from the last stop; forget it so it starts at the top.
 		recordings.forget_position(recording)
-	session.openWithCallback(done, RecordingPlayer, eServiceReference(recording.service_ref))
+	session.openWithCallback(done, RecordingPlayer, eServiceReference(recording.service_ref), recording)
 
 
 def recording_now(session, recording):
@@ -118,18 +110,24 @@ def minutes(seconds):
 
 
 def short_when(recording):
-	"""Tue 27 Oct  ·  20:00  ·  58 min"""
+	"""Tue 27 Oct  ·  20:00, including the year when it isn't this year."""
 	day = time.localtime(recording.begin)
-	parts = ["%s %d %s" % (time.strftime("%a", day), day.tm_mday, time.strftime("%b", day)), time.strftime("%H:%M", day)]
+	date = "%s %d %s" % (time.strftime("%a", day), day.tm_mday, time.strftime("%b", day))
+	if day.tm_year != time.localtime().tm_year:
+		date += " %d" % day.tm_year
+	parts = [date, time.strftime("%H:%M", day)]
 	if recording.duration:
 		parts.append(minutes(recording.duration))
 	return "  ·  ".join(parts)
 
 
 def long_when(recording):
-	"""Recorded Tuesday 27 October at 20:00"""
+	"""Recorded Tuesday 27 October at 20:00, with a year for older recordings."""
 	day = time.localtime(recording.begin)
-	return "Recorded %s %d %s at %s" % (time.strftime("%A", day), day.tm_mday, time.strftime("%B", day), time.strftime("%H:%M", day))
+	date = "%s %d %s" % (time.strftime("%A", day), day.tm_mday, time.strftime("%B", day))
+	if day.tm_year != time.localtime().tm_year:
+		date += " %d" % day.tm_year
+	return "Recorded %s at %s" % (date, time.strftime("%H:%M", day))
 
 
 def watched_line(recording):
@@ -137,15 +135,6 @@ def watched_line(recording):
 	if not recording.in_progress:
 		return None
 	return "%s watched  ·  %s left" % (minutes(recording.position), minutes(recording.duration - recording.position))
-
-
-def _key_skin(x, key, label, width=96, label_width=300):
-	"""An outlined remote key, then what it does."""
-	return ('<eLabel position="%d,%d" size="%d,44" backgroundColor="%s" />'
-		'<eLabel text="%s" position="%d,%d" size="%d,40" font="Regular;24" halign="center" valign="center" foregroundColor="%s" backgroundColor="%s" />'
-		'<eLabel text="%s" position="%d,%d" size="%d,44" font="Regular;28" valign="center" foregroundColor="%s" transparent="1" />'
-		% (x, FOOTER_Y, width, theme.TEXT_MUTED, key, x + 2, FOOTER_Y + 2, width - 4, theme.TEXT, theme.BACKGROUND,
-			label, x + width + 18, FOOTER_Y, label_width, theme.TEXT))
 
 
 def _row_skin(i):
@@ -208,11 +197,10 @@ class Recordings(Screen):
 		<widget name="watched" position="%(dx)d,898" size="%(dw)d,36" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
 
 		<eLabel position="60,978" size="1800,1" backgroundColor="%(divider)s" />
-		%(ok_key)s
-		<ePixmap pixmap="%(blue)s" position="560,%(dot_y)d" size="24,24" alphatest="blend" />
-		<eLabel text="Sort" position="600,%(footer_y)d" size="300,44" font="Regular;28" valign="center" foregroundColor="%(text)s" transparent="1" />
-		%(menu_key)s
-		%(back_key)s
+		<ePixmap pixmap="%(red)s" position="60,%(dot_y)d" size="24,24" alphatest="blend" />
+		<eLabel text="Delete" position="100,%(footer_y)d" size="240,44" font="Regular;28" valign="center" foregroundColor="%(text)s" transparent="1" />
+		<ePixmap pixmap="%(blue)s" position="380,%(dot_y)d" size="24,24" alphatest="blend" />
+		<eLabel text="Sort" position="420,%(footer_y)d" size="180,44" font="Regular;28" valign="center" foregroundColor="%(text)s" transparent="1" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER,
 		"card": theme.CARD, "accent": theme.ACCENT,
@@ -223,9 +211,8 @@ class Recordings(Screen):
 		"bix": DETAIL_X + (DETAIL_W - 52) // 2, "biy": PICTURE_Y + (PICTURE_H - 52) // 2,
 		"pill_x": DETAIL_X + 20, "pill_y": PICTURE_Y + 20,
 		"codes": _code_icons_skin(581),
-		"footer_y": FOOTER_Y, "dot_y": FOOTER_Y + 10, "blue": icons.key_icon("blue"),
-		"ok_key": _key_skin(60, "OK", "Watch / Resume"), "menu_key": _key_skin(1060, "MENU", "More options", 120),
-		"back_key": _key_skin(1600, "BACK", "Back", 110, 140),
+		"footer_y": FOOTER_Y, "dot_y": FOOTER_Y + 10,
+		"red": icons.key_icon("red"), "blue": icons.key_icon("blue"),
 	}
 
 	skin = scale.skin(skin)
@@ -249,6 +236,8 @@ class Recordings(Screen):
 			self["code%d" % i] = Pixmap()
 		self["progress"] = ProgressBar()
 
+		self.deleting = False
+		self.pending_delete = None
 		self.recordings = None
 		self.storage = None
 		self.order = recordings.NEWEST
@@ -272,6 +261,7 @@ class Recordings(Screen):
 			"nextService": lambda: self.move(-ROWS),
 			"prevService": lambda: self.move(ROWS),
 			"ok": self.ok,
+			"red": self.delete_option,
 			"blue": self.change_order,
 			"menu": self.options,
 			"cancel": self.leave,
@@ -336,43 +326,86 @@ class Recordings(Screen):
 		self.paint()
 
 	def change_order(self):
-		chosen = self.chosen()
 		self.order = recordings.SORTS[(recordings.SORTS.index(self.order) + 1) % len(recordings.SORTS)]
 		if self.recordings:
 			self.recordings = recordings.sort(self.recordings, self.order)
-			self.select(self.recordings.index(chosen))
+			# Show the beginning of every new order so the change is immediately clear.
+			self.top = 0
+			self.select(0)
 		self.paint()
 
 	def ok(self):
+		if self.deleting:
+			return
 		recording = self.chosen()
 		if recording is not None:
 			play_recording(self.session, recording, self.returned)
 
 	def options(self):
+		if self.deleting:
+			return
 		recording = self.chosen()
 		if recording is None:
 			return
 		choices = [("Watch from the start", "start")] if recording.in_progress else []
-		choices.append(("Delete", "delete"))
+		if not recording_now(self.session, recording):
+			choices.append(("Delete", "delete"))
 		choices.append(("Cancel", None))
 		self.session.openWithCallback(self.option_chosen, GullionChoice, recording.title, choices,
 			"%s  ·  %s" % (short_when(recording), recordings.file_size(recording.size)))
 
+	def delete_option(self):
+		"""RED goes straight to the safe delete confirmation for the chosen recording."""
+		if self.deleting:
+			return
+		recording = self.chosen()
+		if recording is None or self.delete_blocked(recording):
+			return
+		self.pending_delete = recording
+		self.session.openWithCallback(self.delete_chosen, GullionChoice, "Delete %s?" % recording.title,
+			[("Delete", "delete"), ("Keep it", None)], "It goes to the recycle bin, so Tech Support can bring it back.")
+
 	def option_chosen(self, choice=None):
+		if self.deleting:
+			return
 		recording = self.chosen()
 		if recording is None:
 			return
 		if choice == "start":
 			play_recording(self.session, recording, self.returned, from_start=True)
 		elif choice == "delete":
+			if self.deleting or self.delete_blocked(recording):
+				return
+			self.pending_delete = recording
 			self.session.openWithCallback(self.delete_chosen, GullionChoice, "Delete %s?" % recording.title,
 				[("Delete", "delete"), ("Keep it", None)], "It goes to the recycle bin, so Tech Support can bring it back.")
 
+	def delete_blocked(self, recording):
+		if not recording_now(self.session, recording):
+			return False
+		self.session.open(GullionChoice, "Still recording", [("OK", None)],
+			"Wait until this programme has finished recording before deleting it.")
+		return True
+
 	def delete_chosen(self, choice=None):
-		recording = self.chosen()
-		if choice == "delete" and recording is not None:
-			recordings.move_to_trash(recording)
-			self.load()
+		recording = self.pending_delete
+		self.pending_delete = None
+		if choice != "delete" or recording is None or self.deleting:
+			return
+		# Recheck after confirmation: a timer may have started while it was open.
+		if self.delete_blocked(recording):
+			return
+		self.deleting = True
+		self.background.run(lambda: recordings.move_to_trash(recording), self.deleted)
+
+	def deleted(self, result, error):
+		self.deleting = False
+		if error is not None:
+			detail = "Please try again, or ask Tech Support to check the recording drive."
+			if getattr(error, "recovery_needed", False):
+				detail = "Some files are in the recycle bin. Ask Tech Support to restore them."
+			self.session.open(GullionChoice, "Could not delete recording", [("OK", None)], detail)
+		self.load()
 
 	# Drawing
 

@@ -9,6 +9,7 @@ A .ts.cuts file holds cue marks; type 3 is where playback last stopped.
 """
 import os
 import struct
+import tempfile
 import time
 
 DEFAULT_FOLDER = "/media/hdd/movie"
@@ -250,16 +251,49 @@ def forget_position(recording):
 	recording.position = 0
 
 
+class TrashError(Exception):
+	"""A move failed; recovery_needed means some files remain in the recycle bin."""
+
+	def __init__(self, folder, recovery_needed):
+		Exception.__init__(self, "Could not move recording to %s" % folder)
+		self.recovery_needed = recovery_needed
+
+
 def move_to_trash(recording):
-	"""Move the recording and its companion files to the recycle bin folder."""
+	"""Move into a private recycle-bin folder; undo completed moves on failure."""
 	folder = os.path.dirname(recording.path)
 	trash = _trash_folder(folder)
+	# A fresh directory keeps recordings with identical names separate, even when
+	# two callers delete at once. Keep original names for Tech Support to restore.
+	target = tempfile.mkdtemp(prefix="gullion-", dir=trash)
 	base = os.path.splitext(recording.path)[0]
-	paths = [recording.path] + [recording.path + suffix for suffix in COMPANIONS] + [base + ".eit", base + ".jpg", recording.path + ".jpg"]
-	for path in paths:
-		if os.path.exists(path):
-			os.rename(path, os.path.join(trash, os.path.basename(path)))
-	return trash
+	paths = [recording.path + suffix for suffix in COMPANIONS] + [base + ".eit", base + ".jpg", recording.path + ".jpg"]
+	moved = []
+	try:
+		# Move the programme last, so a failed companion move leaves it in the list.
+		for path in paths + [recording.path]:
+			if path != recording.path and not os.path.lexists(path):
+				continue
+			destination = os.path.join(target, os.path.basename(path))
+			os.rename(path, destination)
+			moved.append((path, destination))
+	except (IOError, OSError):
+		recovery_needed = False
+		for path, destination in reversed(moved):
+			try:
+				# Never replace a file recreated while the move was in progress.
+				if os.path.lexists(path):
+					raise OSError("Original path is occupied")
+				os.rename(destination, path)
+			except (IOError, OSError):
+				recovery_needed = True
+		if not recovery_needed:
+			try:
+				os.rmdir(target)
+			except OSError:
+				pass
+		raise TrashError(target, recovery_needed)
+	return target
 
 
 def _trash_folder(folder):

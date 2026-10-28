@@ -28,12 +28,14 @@ class Obj(object):
 class Timer(object):
 	def __init__(self):
 		self.callback = []
+		self.active = False
 
 	def start(self, *args):
-		pass
+		self.active = True
+		self.arguments = args
 
 	def stop(self):
-		pass
+		self.active = False
 
 
 class Instance(object):
@@ -249,13 +251,127 @@ class InfoBarSubtitleSupport(object):
 		self.opened = "stock subtitles"
 
 
+class PlaybackSeek(object):
+	"""Recording seek API: all positions and lengths are 90 kHz ticks."""
+
+	def __init__(self, position=720, length=1800):
+		self.position = position * 90000
+		self.length = length * 90000
+		self.seekable = True
+		self.error = 0
+		self.moves = []
+
+	def getPlayPosition(self):
+		return self.error, self.position
+
+	def getLength(self):
+		return self.error, self.length
+
+	def isCurrentlySeekable(self):
+		return int(self.seekable)
+
+	def seekRelative(self, direction, ticks):
+		self.moves.append((direction, ticks))
+		self.position = max(0, min(self.length, self.position + direction * ticks))
+
+	def seekTo(self, ticks):
+		self.moves.append(("absolute", ticks))
+		self.position = max(0, min(self.length, ticks))
+
+
+class PlaybackService(object):
+	def __init__(self, position=720, length=1800, subtitles=True):
+		self.seeker = PlaybackSeek(position, length)
+		self.tracks = [(0, 101, 0, 0, "eng")] if subtitles else []
+		self.audio = types.SimpleNamespace(getNumberOfTracks=lambda: 1, getCurrentTrack=lambda: 0,
+			getTrackInfo=lambda index: types.SimpleNamespace(getLanguage=lambda: "eng", getDescription=lambda: "AC3"))
+
+	def seek(self):
+		return self.seeker
+
+	def subtitle(self):
+		return self
+
+	def getSubtitleList(self):
+		return self.tracks
+
+	def audioTracks(self):
+		return self.audio
+
+
 class MoviePlayer(Screen):
+	SEEK_STATE_PLAY = (0, 0, 0, ">")
+	SEEK_STATE_PAUSE = (1, 0, 0, "||")
+
 	def __init__(self, session, service, *args):
 		Screen.__init__(self, session)
 		self.service = service
+		self.skinName = "MoviePlayer"
+		self.seekstate = self.SEEK_STATE_PLAY
+		self.onPlayStateChanged = []
+		self.hideTimer = Timer()
+		self.DimmingTimer = Timer()
+		self.shown = False
+		self.selected_subtitle = None
+		self.saved_resume = False
+		self.cuesheet_downloaded = False
+		self.hidden_after_resume = False
+		self.onShow.append(self.startHideTimer)
+
+	def startHideTimer(self):
+		self.hideTimer.start(5000, True)
+
+	def show(self):
+		if not self.shown:
+			self.shown = True
+			for callback in self.onShow:
+				callback()
+
+	def hide(self):
+		self.shown = False
+
+	def setSeekState(self, state):
+		self.seekstate = state
+		for callback in self.onPlayStateChanged:
+			callback(state)
+
+	def pauseService(self):
+		self.setSeekState(self.SEEK_STATE_PAUSE)
+
+	def unPauseService(self):
+		self.setSeekState(self.SEEK_STATE_PLAY)
+
+	def doSeekRelative(self, ticks):
+		seek = self.session.nav.getCurrentService().seek()
+		if ticks:
+			seek.seekRelative(-1 if ticks < 0 else 1, abs(ticks))
+
+	def getCurrentServiceSubtitle(self):
+		service = self.session.nav.getCurrentService()
+		return service.subtitle() if hasattr(service, "subtitle") else None
+
+	def enableSubtitle(self, subtitle):
+		self.selected_subtitle = subtitle
+
+	def downloadCuesheet(self):
+		self.cuesheet_downloaded = True
+
+	def hideAfterResume(self):
+		self.hidden_after_resume = True
+
+	def leavePlayer(self):
+		self.saved_resume = True
+		self.handleLeave("ask")
 
 	def handleLeave(self, how, *args):
 		self.left = how
+		if how == "quit":
+			self.close()
+
+	def close(self, *args):
+		Screen.close(self, *args)
+		for callback in list(self.onClose):
+			callback()
 
 
 # A real 8x8 grey JPEG, for stand-in pictures: filler bytes saved as .jpg set off virus scanners.

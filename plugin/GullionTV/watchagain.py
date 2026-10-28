@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Watch again: recorded TV and, once Tech Support has set it up, Plex.
+"""Media: recorded TV and, once Tech Support has set it up, Plex.
 
-	Continue watching   Plex and recordings left part-way, most recent first
-	Recently added      new films and episodes on Plex (titled "Recently added to Plex")
-	Recorded TV         the box's latest recordings
-	Browse              Films, TV programmes, All recordings (the Recordings screen)
-
-Without Plex, Home opens the Recordings screen instead of this.
+Four colour-key filters rebuild two rows: Continue watching and Recently added.
+The default All view combines up to three recordings with one Plex movie and one
+Plex TV show in each row.
 """
 from Components.ActionMap import ActionMap
 from Components.Label import Label
@@ -17,23 +14,27 @@ from .plex import client as plex
 from .recordings import store as recordings
 from .recordings.screen import Recordings, _channel_name, empty_message, make_frames, play_recording, read_recordings  # noqa: F401
 from .tv import picon
-from .ui import tiles
+from .ui import icons, tiles
 from .ui.background import Background
 from .ui.popups import GullionChoice
 from .webcams import sources
 from .ui import scale
 
-PER_ROW = 5
-TILE_W, IMAGE_H, BAND_H = 328, 184, 72
-GAP, LEFT = 24, 90
-SLOT_Y = (150, 474)  # two rows of tiles on screen at a time
-BROWSE_Y = 800
-BUTTON_W, BUTTON_H, MAX_BUTTONS = 560, 110, 3
-ROW_LIMIT = 20
+VISIBLE = (4, 5)
+ROW_LIMIT = (8, 10)
+TILE_W = (420, 300)
+IMAGE_H = (170, 320)
+BAND_H = (72, 80)
+GAP = (20, 60)
+LEFT = 90
+SLOT_Y = (210, 550)
+FILTERS = ("All", "Recorded TV", "Movies on Plex", "TV Shows on Plex")
+FILTER_COLOURS = ("red", "green", "yellow", "blue")
+TAB_X, TAB_Y, TAB_W, TAB_H, TAB_GAP = 90, 112, 420, 70, 20
 PLEX_THUMBS = "/tmp/gulliontv/plex"
 
 
-def recording_tile(recording, continuing=False):
+def recording_tile(recording, continuing=False, portrait=False):
 	parts = [recording.channel] if recording.channel else []
 	if continuing:
 		parts.append("%d min left" % max(1, (recording.duration - recording.position) // 60))
@@ -43,17 +44,23 @@ def recording_tile(recording, continuing=False):
 	# there's a frame (or without ffmpeg), the logo fills the tile instead.
 	logo = picon.picon_path(recording.channel_ref)
 	frame = recording.image
-	return tiles.Tile(recording.title, "  ·  ".join(parts), frame or logo,
-		recording.progress if recording.position > 60 else None, ("recording", recording), logo=logo if frame else None)
+	return tiles.Tile(recording.title, "  ·  ".join(parts), logo if portrait else frame or logo,
+		recording.progress if recording.position > 60 else None, ("recording", recording),
+		badge="Recorded TV", badge_colour=theme.KEY_RED, logo=logo if frame and not portrait else None)
 
 
-def plex_tile(item, continuing=False):
+def plex_tile(item, continuing=False, portrait=False):
 	"""Plex tiles say so in their corner, so they're told apart from recordings."""
 	subtitle = item.subheading
 	if continuing and item.kind != "episode" and item.duration:
 		subtitle = "%d min left" % max(1, (item.duration - item.position) // 60)
-	return tiles.Tile(item.heading, subtitle, getattr(item, "picture", None), item.progress if continuing else None,
-		("plex", item), badge="Plex", badge_colour=tiles.PLEX_BADGE, poster=getattr(item, "poster_picture", None))
+	badge = "Movie" if item.kind == plex.MOVIE else "TV Show"
+	if portrait:
+		picture = getattr(item, "poster_picture", None) or getattr(item, "picture", None)
+	else:
+		picture = getattr(item, "picture", None)
+	return tiles.Tile(item.heading, subtitle, picture, item.progress if continuing else None,
+		("plex", item), badge=badge, badge_colour=tiles.PLEX_BADGE, poster=getattr(item, "poster_picture", None))
 
 
 def plex_pictures(client, items):
@@ -61,50 +68,58 @@ def plex_pictures(client, items):
 	for item in items:
 		item.picture = item.poster_picture = None
 		if item.landscape:
-			item.picture = sources.download(client.image_url(item.landscape, TILE_W, IMAGE_H), PLEX_THUMBS)
+			item.picture = sources.download(client.image_url(item.landscape, TILE_W[0], IMAGE_H[0]), PLEX_THUMBS)
 		if item.picture is None and item.poster:
-			item.poster_picture = sources.download(client.image_url(item.poster, IMAGE_H * 2 // 3, IMAGE_H), PLEX_THUMBS)
+			item.poster_picture = sources.download(client.image_url(item.poster, TILE_W[1], IMAGE_H[1]), PLEX_THUMBS)
+		elif item.poster:
+			item.poster_picture = sources.download(client.image_url(item.poster, TILE_W[1], IMAGE_H[1]), PLEX_THUMBS)
 
 
 class WatchAgain(Screen):
 	skin = """
 	<screen name="GullionWatchAgain" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
-		<eLabel text="Recordings" position="90,44" size="800,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
+		<eLabel text="Media" position="90,44" size="800,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
 			<convert type="ClockToText">Format:%%a %%d %%b   %%H:%%M</convert>
 		</widget>
-		<eLabel position="90,130" size="1740,1" backgroundColor="%(divider)s" />
+		%(tabs)s
 		%(slots)s
-		<eLabel text="Browse" position="90,%(browse_y)d" size="600,40" font="Regular;30" foregroundColor="%(muted)s" transparent="1" />
-		%(buttons)s
-		<eLabel text="Arrows to choose   ·   OK to watch   ·   BACK for home" position="90,1030" size="900,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
-		<widget name="note" position="1000,1030" size="830,36" font="Regular;22" halign="right" foregroundColor="%(muted)s" transparent="1" />
+		<eLabel position="90,1010" size="1740,1" backgroundColor="%(divider)s" />
+		<eLabel text="Arrows to choose   ·   OK to watch   ·   BACK for Home" position="90,1024" size="980,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="note" position="1010,1024" size="820,36" font="Regular;22" halign="right" foregroundColor="%(muted)s" transparent="1" />
 	</screen>""" % {
-		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER, "browse_y": BROWSE_Y,
+		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER,
+		"tabs": "".join(
+			'<widget name="tab%d_bg" position="%d,%d" size="%d,%d" backgroundColor="%s" />'
+			'<widget name="tab%d" position="%d,%d" size="%d,%d" font="Regular;27" valign="center" foregroundColor="%s" transparent="1" zPosition="2" />'
+			'<ePixmap pixmap="%s" position="%d,%d" size="24,24" alphatest="blend" zPosition="2" />'
+			% (i, TAB_X + i * (TAB_W + TAB_GAP), TAB_Y, TAB_W, TAB_H, theme.CARD,
+				i, TAB_X + i * (TAB_W + TAB_GAP) + 24, TAB_Y, TAB_W - 82, TAB_H, theme.TEXT,
+				icons.key_icon(FILTER_COLOURS[i]), TAB_X + i * (TAB_W + TAB_GAP) + TAB_W - 48, TAB_Y + 23)
+			for i in range(len(FILTERS))),
 		"slots": "".join(
 			'<widget name="slot%d_title" position="90,%d" size="1200,40" font="Regular;30" foregroundColor="%s" transparent="1" />'
 			'<widget name="slot%d_empty" position="90,%d" size="1740,%d" font="Regular;28" valign="center" foregroundColor="%s" transparent="1" />'
-			% (slot, y, theme.TEXT_MUTED, slot, y + 46, IMAGE_H, theme.TEXT_MUTED)
-			+ "".join(tiles.skin("slot%d_tile%d" % (slot, i), LEFT + i * (TILE_W + GAP), y + 46, TILE_W, IMAGE_H, BAND_H) for i in range(PER_ROW))
+			% (slot, y, theme.TEXT_MUTED, slot, y + 46, IMAGE_H[slot], theme.TEXT_MUTED)
+			+ "".join(tiles.skin("slot%d_tile%d" % (slot, i), LEFT + i * (TILE_W[slot] + GAP[slot]), y + 46,
+				TILE_W[slot], IMAGE_H[slot], BAND_H[slot], badge_width=140,
+				name_font=26 if slot == 0 else 24, sub_font=20) for i in range(VISIBLE[slot]))
 			for slot, y in enumerate(SLOT_Y)),
-		"buttons": "".join(
-			'<widget name="button%d" position="%d,%d" size="%d,%d" font="Regular;34" halign="center" valign="center" foregroundColor="%s" backgroundColor="%s" />'
-			% (i, LEFT + i * (BUTTON_W + 30), BROWSE_Y + 46, BUTTON_W, BUTTON_H, theme.TEXT, theme.CARD)
-			for i in range(MAX_BUTTONS)),
 	}
 
 	skin = scale.skin(skin)
 
 	def __init__(self, session, plex_settings=None):
 		Screen.__init__(self, session)
-		self.setTitle("Recordings")
+		self.setTitle("Media")
+		for i, title in enumerate(FILTERS):
+			self["tab%d_bg" % i] = Label()
+			self["tab%d" % i] = Label(title)
 		for slot in range(len(SLOT_Y)):
 			self["slot%d_title" % slot] = Label()
 			self["slot%d_empty" % slot] = Label()
-			for i in range(PER_ROW):
+			for i in range(VISIBLE[slot]):
 				tiles.add_widgets(self, "slot%d_tile%d" % (slot, i))
-		for i in range(MAX_BUTTONS):
-			self["button%d" % i] = Label()
 		self["note"] = Label()
 
 		self.plex_settings = plex_settings if plex_settings is not None else plex.load_settings()
@@ -112,29 +127,30 @@ class WatchAgain(Screen):
 		self.recordings = None
 		self.storage = None
 		self.plex_rows = ([], [])
-		self.pictures = tiles.TilePictures(TILE_W, IMAGE_H)
+		self.pictures = [tiles.TilePictures(TILE_W[i], IMAGE_H[i]) for i in range(2)]
 		self.background = Background()
-		self.buttons = ([("Films", "films"), ("TV programmes", "shows")] if self.with_plex else []) + [("All recordings", "recordings")]
 		self.sections = []
-		self.row = 0  # index into self.sections, or len(self.sections) for Browse
-		self.top = 0
+		self.filter = 0
+		self.row = 0
 		self.columns = {}
 		self.offsets = {}
-		self.button = 0
-		self.moved = False
 		# Live TV is stopped while choosing something to watch, so it can't show
 		# through the pictures, and started again on the way out.
 		self.live = session.nav.getCurrentlyPlayingServiceReference()
 		self.build()
 
-		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "MenuActions"], {
+		self["actions"] = ActionMap(["DirectionActions", "OkCancelActions", "MenuActions", "ColorActions"], {
 			"left": lambda: self.move_across(-1),
 			"right": lambda: self.move_across(1),
 			"up": lambda: self.move_down(-1),
 			"down": lambda: self.move_down(1),
+			"red": lambda: self.choose_filter(0),
+			"green": lambda: self.choose_filter(1),
+			"yellow": lambda: self.choose_filter(2),
+			"blue": lambda: self.choose_filter(3),
 			"ok": self.ok,
 			"cancel": self.leave,
-			"menu": self.leave,
+			"menu": self.open_recordings,
 		}, -1)
 		self.onLayoutFinish.append(self.started)
 
@@ -186,89 +202,72 @@ class WatchAgain(Screen):
 	def build(self):
 		continuing, recently_added = self.plex_rows
 		started = [recording for recording in self.recordings or [] if recording.in_progress]
-		mixed = [(item.viewed_at, plex_tile(item, True)) for item in continuing]
-		mixed += [(recording.viewed_at, recording_tile(recording, True)) for recording in started]
-		mixed.sort(key=lambda pair: pair[0], reverse=True)
-
-		sections = []
-		if mixed:
-			sections.append({"title": "Continue watching", "tiles": [tile for _, tile in mixed][:ROW_LIMIT]})
-		if recently_added:
-			sections.append({"title": "Recently added to Plex", "tiles": [plex_tile(item) for item in recently_added]})
-		if self.recordings is None:
-			empty = "Looking for recordings..."
+		if self.filter == 0:
+			watching = [recording_tile(r, True) for r in started[:3]] + self.one_of_each(continuing, True)
+			recent = [recording_tile(r, portrait=True) for r in (self.recordings or [])[:3]] + self.one_of_each(recently_added, False, True)
+		elif self.filter == 1:
+			watching = [recording_tile(r, True) for r in started[:ROW_LIMIT[0]]]
+			recent = [recording_tile(r, portrait=True) for r in (self.recordings or [])[:ROW_LIMIT[1]]]
+		elif self.filter == 2:
+			watching = [plex_tile(item, True) for item in continuing if item.kind == plex.MOVIE][:ROW_LIMIT[0]]
+			recent = [plex_tile(item, portrait=True) for item in recently_added if item.kind == plex.MOVIE][:ROW_LIMIT[1]]
 		else:
-			empty = empty_message(self.storage)
-		sections.append({"title": "Recorded TV", "tiles": [recording_tile(r) for r in (self.recordings or [])[:ROW_LIMIT]], "empty": empty})
+			watching = [plex_tile(item, True) for item in continuing if item.kind != plex.MOVIE][:ROW_LIMIT[0]]
+			recent = [plex_tile(item, portrait=True) for item in recently_added if item.kind != plex.MOVIE][:ROW_LIMIT[1]]
+		recording_empty = "Looking for recordings..." if self.recordings is None else empty_message(self.storage)
+		plex_empty = "Plex isn't set up" if not self.with_plex else "Nothing here right now"
+		self.sections = [
+			{"title": "Continue watching", "tiles": watching, "empty": recording_empty if self.filter == 1 else "Nothing to continue"},
+			{"title": "Recently added", "tiles": recent, "empty": recording_empty if self.filter in (0, 1) and not self.with_plex else plex_empty},
+		]
+		self.row = min(self.row, 1)
+		for index, section in enumerate(self.sections):
+			self.columns[section["title"]] = min(self.columns.get(section["title"], 0), max(0, len(section["tiles"]) - 1))
+			self.offsets[section["title"]] = min(self.offsets.get(section["title"], 0), max(0, len(section["tiles"]) - VISIBLE[index]))
 
-		# Until the viewer moves, stay on the top row (Continue watching once it loads).
-		# After that, keep the same row (or Browse) selected while rows appear above it.
-		if not self.moved:
-			self.sections, self.row, self.top = sections, 0, 0
-			return
-		was_browsing = bool(self.sections) and self.browsing
-		chosen = self.sections[self.row]["title"] if self.row < len(self.sections) else None
-		self.sections = sections
-		titles = [section["title"] for section in sections]
-		if was_browsing:
-			self.row = len(self.sections)
-		elif chosen in titles:
-			self.row = titles.index(chosen)
-		elif self.row >= len(self.sections) and chosen is not None:
-			self.row = len(self.sections) - 1
-		self.top = max(0, min(self.top, len(self.sections) - len(SLOT_Y)))
-		if self.row < len(self.sections):
-			self.top = min(self.top, self.row)
-			self.top = max(self.top, self.row - len(SLOT_Y) + 1)
-
-	@property
-	def browsing(self):
-		return self.row >= len(self.sections)
+	def one_of_each(self, items, continuing, portrait=False):
+		chosen = []
+		for movie in (True, False):
+			for item in items:
+				if (item.kind == plex.MOVIE) == movie:
+					chosen.append(plex_tile(item, continuing, portrait))
+					break
+		return chosen
 
 	# Navigation
 
 	def move_across(self, step):
-		self.moved = True
-		if self.browsing:
-			self.button = max(0, min(len(self.buttons) - 1, self.button + step))
-		else:
-			title = self.sections[self.row]["title"]
-			count = len(self.sections[self.row]["tiles"])
+		if self.row < 0:
+			self.choose_filter(max(0, min(len(FILTERS) - 1, self.filter + step)), True)
+			return
+		title = self.sections[self.row]["title"]
+		count = len(self.sections[self.row]["tiles"])
+		if count:
 			column = max(0, min(count - 1, self.columns.get(title, 0) + step))
 			self.columns[title] = column
 			offset = self.offsets.get(title, 0)
 			if column < offset:
 				offset = column
-			elif column >= offset + PER_ROW:
-				offset = column - PER_ROW + 1
+			elif column >= offset + VISIBLE[self.row]:
+				offset = column - VISIBLE[self.row] + 1
 			self.offsets[title] = offset
 		self.paint()
 
 	def move_down(self, step):
-		self.moved = True
-		self.row = max(0, min(len(self.sections), self.row + step))
-		if not self.browsing:
-			if self.row < self.top:
-				self.top = self.row
-			elif self.row >= self.top + len(SLOT_Y):
-				self.top = self.row - len(SLOT_Y) + 1
+		self.row = max(-1, min(1, self.row + step))
 		self.paint()
 
 	def selected_tile(self):
-		if self.browsing:
+		if self.row < 0:
 			return None
 		section = self.sections[self.row]
 		column = self.columns.get(section["title"], 0)
 		return section["tiles"][column] if column < len(section["tiles"]) else None
 
 	def ok(self):
-		if self.browsing:
-			action = self.buttons[self.button][1]
-			if action == "recordings":
-				self.session.openWithCallback(self.reload, Recordings, False)
-			else:
-				from .plex.library import PlexLibrary
-				self.session.open(PlexLibrary, self.plex_settings, plex.MOVIE if action == "films" else plex.SHOW)
+		if self.row < 0:
+			self.row = 0
+			self.paint()
 			return
 		tile = self.selected_tile()
 		if tile is None:
@@ -279,6 +278,18 @@ class WatchAgain(Screen):
 		else:
 			self.session.open(GullionChoice, thing.heading, [("OK", None)], "Playing from Plex arrives in the next update.")
 
+	def choose_filter(self, index, keep_filter_focus=False):
+		self.filter = index
+		self.row = -1 if keep_filter_focus else 0
+		self.columns = {}
+		self.offsets = {}
+		self.build()
+		self.paint()
+
+	def open_recordings(self):
+		if self.filter in (0, 1):
+			self.session.openWithCallback(self.reload, Recordings, False)
+
 	def reload(self, *args):
 		# The player may have started live TV again as it closed.
 		self.session.nav.stopService()
@@ -287,33 +298,27 @@ class WatchAgain(Screen):
 	# Drawing
 
 	def paint(self):
+		for i in range(len(FILTERS)):
+			chosen = i == self.filter
+			tiles.colour(self["tab%d_bg" % i], background=theme.CARD_SELECTED if chosen else theme.CARD)
+			tiles.colour(self["tab%d" % i], foreground=theme.TEXT_ON_SELECTED if chosen else theme.TEXT)
 		for slot in range(len(SLOT_Y)):
-			index = self.top + slot
+			index = slot
 			prefix = "slot%d" % slot
 			if index >= len(self.sections):
 				self[prefix + "_title"].setText("")
 				self[prefix + "_empty"].setText("")
-				for i in range(PER_ROW):
+				for i in range(VISIBLE[slot]):
 					tiles.hide(self, "%s_tile%d" % (prefix, i))
 				continue
 			section = self.sections[index]
 			self[prefix + "_title"].setText(section["title"])
 			self[prefix + "_empty"].setText(section.get("empty", "") if not section["tiles"] else "")
-			offset = self.offsets.get(section["title"], 0)
 			column = self.columns.get(section["title"], 0)
-			for i in range(PER_ROW):
+			offset = self.offsets.get(section["title"], 0)
+			for i in range(VISIBLE[slot]):
 				position = offset + i
 				if position < len(section["tiles"]):
-					tiles.draw(self, "%s_tile%d" % (prefix, i), section["tiles"][position], index == self.row and position == column, self.pictures)
+					tiles.draw(self, "%s_tile%d" % (prefix, i), section["tiles"][position], index == self.row and position == column, self.pictures[slot])
 				else:
 					tiles.hide(self, "%s_tile%d" % (prefix, i))
-		for i in range(MAX_BUTTONS):
-			button = self["button%d" % i]
-			if i < len(self.buttons):
-				button.setText(self.buttons[i][0])
-				button.show()
-				chosen = self.browsing and i == self.button
-				tiles.colour(button, background=theme.CARD_SELECTED if chosen else theme.CARD,
-					foreground=theme.TEXT_ON_SELECTED if chosen else theme.TEXT)
-			else:
-				button.hide()

@@ -2,32 +2,37 @@
 
 [Documentation](../README.md) › Plex
 
-Once Tech Support has [set up Plex](../setup/plex-setup.md), the YELLOW card on Home is subtitled "Recorded TV &
-Plex" and opens Watch again. Without Plex, it opens [Recordings](recordings.md) instead.
+The YELLOW card on Home is called Media. It combines recorded TV with Plex movies and TV shows when Tech Support
+has [set up Plex](../setup/plex-setup.md). Without Plex, the same screen still shows recorded TV.
 
-## Watch again
+## Media
 
 ![Watch again](../images/20-watch-again.png)
 
-Watch again has these rows:
+The four equal tabs across the top are selected directly by the matching remote colour:
 
-| Row | What's in it |
+| Key | Filter |
 |---|---|
-| Continue watching | Plex and part-watched recordings, the most recently watched first |
-| Recently added to Plex | new films and episodes |
-| Recorded TV | the box's newest recordings |
-| Browse | Films, TV programmes and All recordings (the [Recordings](recordings.md) list) |
+| RED | All |
+| GREEN | Recorded TV |
+| YELLOW | Movies on Plex |
+| BLUE | TV Shows on Plex |
 
-Plex tiles have a Plex badge and use landscape art: an episode's still, or a film's background. When there's only
-a poster, it sits at the left of the tile. Recorded TV tiles have a picture from the recording with the channel's
-logo in the corner.
+Below them are Continue watching and Recently added. Continue watching shows four landscape cards and scrolls
+as far as an eighth item. Recently added shows five portrait cards and scrolls as far as a tenth item. All shows
+at most three recordings plus one Plex movie and one Plex TV show. The other filters show only their selected type.
 
-![Browse](../images/21-watch-again-browse.png)
+Continue watching uses Plex landscape art or a frame from a recording. Recently added uses Plex poster art and
+the channel logo for recorded TV. Each panel is labelled Recorded TV, Movie or TV Show.
+
+![Movies on Plex](../images/21-watch-again-browse.png)
 
 | Key | What it does |
 |---|---|
-| Arrows | choose |
+| LEFT / RIGHT | choose within a row, or change a filter while the tabs are focused |
+| UP / DOWN | move between the tabs, Continue watching and Recently added |
 | OK | watch, or open |
+| MENU | open the full [Recorded TV](recordings.md) list from All or Recorded TV |
 | BACK | back to Home |
 
 ## Films and TV programmes
