@@ -19,7 +19,7 @@ e2stubs.install()
 from GullionTV import hook, home, plugin, setup, watchagain  # noqa: E402
 from GullionTV.plex import client as plex, library as plexlibrary, setup as plexsetup  # noqa: E402
 from GullionTV.recordings import store as recordings, thumbnails  # noqa: E402
-from GullionTV.tv import converter, guide, infobar as banner, picon, renderer, serviceinfo  # noqa: E402
+from GullionTV.tv import converter, guide, infobar as banner, mute, picon, renderer, series, serviceinfo  # noqa: E402
 from GullionTV.ui import icons as ui_icons  # noqa: E402
 from GullionTV.ui import background, pin, placeholder, popups, tiles  # noqa: E402
 from GullionTV.webcams import config as webcamconfig, screens as webcams, sources  # noqa: E402
@@ -315,6 +315,52 @@ for _ in range(pin.MAX_TRIES):
 assert prompt.closed == (False,)
 print("pin ok")
 
+# AutoTimer bridge: exact case, one channel, standard Enigma2 margins, then parse the EPG.
+class FakeSeriesRule(object):
+	def __init__(self, ident, name, match, enabled):
+		self.id, self.name, self.match, self.enabled = ident, name, match, enabled
+		self.services = []
+
+
+class FakeAutoTimer(object):
+	def __init__(self):
+		self.timers = []
+		self.written = self.parsed = False
+
+	def readXml(self):
+		pass
+
+	def getTimerList(self):
+		return self.timers
+
+	def getUniqueId(self):
+		return len(self.timers) + 1
+
+	def add(self, rule):
+		self.timers.append(rule)
+
+	def writeXml(self):
+		self.written = True
+
+	def parseEPGAsync(self):
+		self.parsed = True
+
+
+fake_autotimer = FakeAutoTimer()
+real_series_load = series._load
+series._load = lambda: (fake_autotimer, FakeSeriesRule)
+series._manager = None
+assert series.available() and series.add("Prime Time", "1:0:1:ONE:")
+rule = fake_autotimer.timers[0]
+assert rule.match == "Prime Time" and rule.searchType == "exact" and rule.searchCase == "sensitive"
+assert rule.services == ["1:0:1:ONE:"] and rule.offset is None, "series recording uses one channel and standard margins"
+assert fake_autotimer.written and fake_autotimer.parsed and series.matches("Prime Time", "1:0:1:ONE:")
+assert not series.matches("prime time", "1:0:1:ONE:") and not series.matches("Prime Time", "1:0:1:TWO:")
+assert not series.add("Prime Time", "1:0:1:ONE:") and len(fake_autotimer.timers) == 1, "duplicate series rules are not added"
+series._load = real_series_load
+series._manager = None
+print("series recording ok")
+
 # TV guide.
 session = e2stubs.fake_session()
 g = guide.Guide(session)
@@ -327,12 +373,28 @@ assert "REC: record" in g["footer"].text and "INFO: details" in g["footer"].text
 assert g["footer"].text.endswith("BACK: home") and g["storage_note"].text == ""
 assert time.strftime("%H:%M", time.localtime(g.window_start)) == "19:30"
 assert len(g["grid"].list) == guide.ROWS
+assert any(entry.get("backcolor") == guide.theme.rgb(guide.theme.CELL_ELAPSED_SELECTED)
+	for entry in g["grid"].list[0][1:]), "the selected current programme shades its elapsed portion up to now"
+
+current = g.selected_event()
+timers.add((g.channels[g.row].ref, current.eid))
+g.redraw()
+assert g["rec_pill"].visible and not g["record_mark"].visible, "REC pill is reserved for a programme recording now"
+timers.discard((g.channels[g.row].ref, current.eid))
+g.redraw()
 
 g.next_event()
-assert g.selected_event().title == "Fair City" and g["rec_pill"].visible
-assert g["rec_pill"].instance.pixmap.endswith("rec_pill_96x40.png")
+assert g.selected_event().title == "Fair City" and not g["rec_pill"].visible and g["record_mark"].visible
+assert g["record_mark"].instance.pixmap == g.detail_rec_icon, "a future standalone recording gets its outlined record icon in the details"
 icons = [entry for entry in g["grid"].list[0][1:] if "png" in entry]
 assert len(icons) == 1 and icons[0]["png"] == guide.rec_icon_path() and guide.rec_icon_path().endswith("icons/record_26.png") and os.path.isfile(guide.rec_icon_path()), "Fair City gets the red record mark"
+real_series_matches = series.matches
+series.matches = lambda title, ref: title == "Fair City"
+g.redraw()
+icons = [entry for entry in g["grid"].list[0][1:] if "png" in entry]
+assert len(icons) == 1 and icons[0]["png"] == guide.series_icon_path() and os.path.isfile(guide.series_icon_path()), "AutoTimer recordings get the series-link mark"
+assert g["record_mark"].instance.pixmap == g.detail_series_icon and not g["rec_pill"].visible, "a future series uses the link icon in its details"
+series.matches = real_series_matches
 g.next_event()
 assert g.selected_event().title == "Prime Time"
 g.next_event()
@@ -347,6 +409,16 @@ g.move_row(guide.ROWS)
 assert g.row == 7 and g.top == 2
 g.move_row(-100)
 assert g.row == 0 and g.top == 0
+
+g.choose(next(event for event in g.row_events(g.row) if event.title == "Prime Time"))
+assert g.selected_event().title == "Prime Time"
+g.series_available = True
+g.ok()
+assert [option[0] for option in session.opened[-1][2]] == ["Record this", "Record series", "Cancel"], "AutoTimer adds Record series to the guide choice"
+g.series_available = False
+g.ok()
+assert [option[0] for option in session.opened[-1][2]] == ["Record this", "Cancel"], "Record series is hidden without AutoTimer"
+g.choose(next(event for event in g.row_events(g.row) if event.title == "Fair City"))
 
 g.next_event()
 g.ok()
@@ -699,9 +771,14 @@ skin.domScreens = {"InfoBar": ("stock InfoBar element", "/usr/share/enigma2/skin
 config.plugins.gulliontv.infobar.value = True
 plugin.sessionstart(0, session=FakeSession())
 element, path = skin.domScreens["InfoBar"]
+mute_element, mute_path = skin.domScreens["Mute"]
+assert mute_element.get("name") == "Mute" and mute_path.endswith("GullionTV"), "global stock mute skin is replaced"
+mute_picture = next(item for item in mute_element if item.tag == "ePixmap")
+assert mute_picture.get("position") == "24,16" and os.path.isfile(mute_picture.get("pixmap")), "mute alert uses the top-left volume-mute icon"
 assert skin.dom_screens["InfoBar"][0] == "stock InfoBar element", "OpenATV 6.4's table is used when it's there"
 del skin.domScreens
 banner.install()
+mute.install()
 assert skin.dom_screens["InfoBar"][0].get("name") == "InfoBar", "newer images' table otherwise"
 assert element.get("name") == "InfoBar" and path.endswith("GullionTV")
 assert sys.modules["Components.Converter.GullionServiceInfo"] is converter
@@ -720,7 +797,7 @@ for widget in element.iter("widget"):
 	if widget.get("render") == "Pixmap":
 		assert os.path.isfile(widget.get("pixmap")), widget.get("pixmap")
 assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
-for name in ("NumberZap", "Volume"):
+for name in ("NumberZap", "Volume", "Mute"):
 	popup, path = skin.dom_screens[name]
 	assert popup.get("name") == name and path.endswith("GullionTV")
 print("infobar ok")
@@ -1672,7 +1749,7 @@ screens = [recplayer.RecordingPlayer, home.GullionHome, guide.Guide, guide.Chann
 assert scale.factor() == 1.0 and scale.skin(home.GullionHome.skin) == home.GullionHome.skin, "full HD is drawn exactly as designed"
 for width, height in ((1280, 720), (720, 576), (3840, 2160)):
 	scale.set_factor(width / 1920.0)
-	for cls in screens + [types.SimpleNamespace(skin=banner.SKIN, __name__="InfoBar")]:
+	for cls in screens + [types.SimpleNamespace(skin=banner.SKIN, __name__="InfoBar"), types.SimpleNamespace(skin=mute.MUTE, __name__="Mute")]:
 		root = ET.fromstring(scale.skin(cls.skin))
 		w, h = [int(v) for v in root.get("size").split(",")]
 		assert w <= width and h <= height, "%s is %dx%d on a %dx%d skin" % (cls.__name__, w, h, width, height)

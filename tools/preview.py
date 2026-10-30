@@ -25,7 +25,7 @@ e2stubs.install()
 from GullionTV import home, watchagain  # noqa: E402
 from GullionTV.recordings import screen as recscreen  # noqa: E402
 from GullionTV.plex import client as plex, library as plexlibrary, setup as plexsetup  # noqa: E402
-from GullionTV.tv import converter, epg, guide, infobar, nowinfo, picon, serviceinfo, soundsubs  # noqa: E402
+from GullionTV.tv import converter, epg, guide, infobar, mute, nowinfo, picon, serviceinfo, soundsubs  # noqa: E402
 from GullionTV.ui import icons as ui_icons, pin, placeholder, popups  # noqa: E402
 from GullionTV.webcams import screens as webcams, sources  # noqa: E402
 from GullionTV.weather import forecast  # noqa: E402
@@ -154,7 +154,8 @@ def draw_list(image, box, widget):
 				icon = Image.open(entry["png"]).convert("RGBA").resize((ew, eh))
 				image.paste(icon, (x + ex, top + ey), icon)
 				continue
-			cell = Image.new("RGB", (ew, eh), parse_colour(entry["backcolor"]) or (0, 0, 0))
+			transparent = "backcolor" not in entry
+			cell = Image.new("RGBA" if transparent else "RGB", (ew, eh), (0, 0, 0, 0) if transparent else (parse_colour(entry["backcolor"]) or (0, 0, 0)))
 			cell_draw = ImageDraw.Draw(cell)
 			text = entry.get("text") or ""
 			if text:
@@ -165,7 +166,7 @@ def draw_list(image, box, widget):
 				ascent, descent = face.getmetrics()
 				ty = (eh - ascent - descent) / 2 if flags & 4 else 0
 				cell_draw.text((tx, ty), text, font=face, fill=parse_colour(entry["color"]))
-			image.paste(cell, (x + ex, top + ey))
+			image.paste(cell, (x + ex, top + ey), cell if transparent else None)
 
 
 def paste_fitted(image, box, path):
@@ -479,14 +480,19 @@ def main():
 		guide.epg.channel_lists = original_lists
 
 	tv_guide.next_event()
+	real_series_matches = guide.series.matches
+	guide.series.matches = lambda title, ref: title == tv_guide.selected_event().title
+	tv_guide.redraw()
 	shots.append(("08-guide-will-record", render(tv_guide)))
+	guide.series.matches = real_series_matches
 
 	tv_guide.move_row(4)
 	tv_guide.next_event()
 	choice_base = render(tv_guide)
 	shots.append(("09-guide-bbc-one", choice_base))
 	event = tv_guide.selected_event()
-	choice = popups.GullionChoice(e2stubs.fake_session(), event.title, [("Record this", "record"), ("Cancel", None)], tv_guide.when(event))
+	choice = popups.GullionChoice(e2stubs.fake_session(), event.title,
+		[("Record this", "record"), ("Record series", "series"), ("Cancel", None)], tv_guide.when(event))
 	choice.layout()
 	shots.append(("10-guide-record-choice", render(choice, choice_base)))
 
@@ -550,6 +556,7 @@ def main():
 			for name, text in texts.items():
 				self[name] = e2stubs.Widget(text)
 	shots.append(("15d-channel-number", render(Popup(infobar.NUMBER_ZAP, number="101", servicename="BBC One NI HD"), tv)))
+	shots.append(("15e-muted", render(Popup(mute.MUTE), tv)))
 
 	sample_webcams.PICTURES.update({
 		"https://cdn.example/live/Uploads/ProfileImages/stmalachys.jpeg": picture_bytes("church"),

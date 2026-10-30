@@ -36,6 +36,11 @@ Typing a number on live TV, or in the TV Guide, goes straight to that channel.
 
 The volume pop-up has the same style.
 
+MUTE shows a persistent alert in the top-left corner. It stays visible over every Gullion TV screen until sound
+is unmuted, replacing the image's stock mute panel.
+
+![Muted](../images/15e-muted.png)
+
 ## What's on
 
 INFO, or OK twice, shows the programme on now with its full description and the next five on this channel. On the

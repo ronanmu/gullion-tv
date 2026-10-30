@@ -1,7 +1,7 @@
 # Handover: Gullion TV
 
-This file describes the working tree after `37fa30f` ("Add experimental unified Media design") and the following
-restoration of the dedicated Recordings route. The experimental combined screen is preserved by the
+This file describes the working tree in the "Add series recording and global mute display" commit. The
+experimental combined screen is preserved by the
 `experimental-media-design` tag. Read [AGENTS.md](AGENTS.md) for how to work on the code, and
 [docs/](docs/README.md) for what each screen looks like and does. The experimental tree was
 deployed to the GigaBlue on 28 October 2026 after the owner said it was available; only compilation, restart and
@@ -56,10 +56,11 @@ offline checks (section 7).
 | Channel banner: number and name above the panel, picon, Now/Next, access-code, HD/UHD and delivery icons, signal gauge, REC pill | Tried on the GigaBlue |
 | Channel numbering matching the box, including Freesat (101 = BBC One NI HD) | Fixed and tried on the GigaBlue |
 | Typing a channel number on live TV and in the guide; restyled number-entry and volume pop-ups | Tried on the GigaBlue |
+| Persistent top-left mute alert on every screen, replacing the stock Mute skin | Offline checks and render only, 30 October 2026; not deployed |
 | What's on panel (INFO, or OK twice): now, next five, live tuner details | Tried on the GigaBlue |
 | Sound and subtitles pop-up (YELLOW / AUDIO / SUBTITLE) | Tried on the GigaBlue |
 | TV Guide: grid, CH+/- paging, day and list switching, number entry, record/cancel, codes stripped into icons, record marks, drive checks | Tried on the GigaBlue |
-| TV Guide update: continuous bouquet scrolling, YELLOW list selector, bouquet heading above channels, footer-only action hints, full-details icons | Offline checks and renders only, 28 October 2026; not deployed |
+| TV Guide update: continuous bouquet scrolling, YELLOW list selector, padded bouquet heading, footer-only action hints, full-details icons, AutoTimer series recording | Offline checks and renders only, 30 October 2026; not deployed |
 | GUIDE, arrows, TV, FAV open Gullion TV's guide instead of the stock guide and channel list | Tried on the GigaBlue |
 | REC on live TV: records now until the programme ends, no questions, no "recording started" pop-up; REC again asks Stop/Keep; STOP stops | Tried on the GigaBlue |
 | Webcams: grid, live status, churchservices.tv next service, player with LIVE marker, tile picture from a link or local file | Tried on the GigaBlue |
@@ -79,9 +80,10 @@ offline checks (section 7).
 Everything starts in `plugin/GullionTV/plugin.py`:
 - `WHERE_SESSIONSTART` → `sessionstart()` runs, in order:
   1. `hook.install()`, which patches `Screens.InfoBarGenerics` methods;
-  2. `lock.install(session)`, the PIN gate;
-  3. `recordings.thumbnails.watch_recordings(session)`, frames for finished recordings;
-  4. `tv.infobar.install()`, the banner and pop-up skins (if the "Large channel banner" setting is on).
+  2. `tv.mute.install()`, the global mute alert skin whenever Gullion TV is enabled;
+  3. `lock.install(session)`, the PIN gate;
+  4. `recordings.thumbnails.watch_recordings(session)`, frames for finished recordings;
+  5. `tv.infobar.install()`, the banner and other pop-up skins (if the "Large channel banner" setting is on).
 
   Each step is wrapped in try/except so a failure falls back to stock behaviour instead of stopping the box.
 - `WHERE_PLUGINMENU` → `setup.GullionTVSetup`, the Tech Support settings, reached via Menu → Plugins.
@@ -103,7 +105,7 @@ whose class (or a base class) is named in `LOCKED`. `grant()` lets the next lock
 
 **Skins.** Every screen has its skin as a `%`-formatted XML string designed at 1920×1080, passed through
 `ui/scale.skin()`, which scales positions, sizes and fonts to the active skin's resolution. The banner,
-NumberZap and Volume skins replace the active skin's own entries in `skin.dom_screens` (7.x) / `skin.domScreens`
+NumberZap, Volume and Mute skins replace the active skin's own entries in `skin.dom_screens` (7.x) / `skin.domScreens`
 (6.4) at session start.
 
 **Custom skin parts.** `tv/converter.py` (GullionServiceInfo) and `tv/renderer.py` (GullionIcon) are registered
@@ -240,6 +242,23 @@ Driving the box remotely for testing uses OpenWebif:
 ## 7. Test results at handover
 
 Latest milestone, 30 October 2026:
+
+- Clarified recording state in the TV Guide: the top REC pill now appears only when the selected programme is
+  currently recording. A future timer shows `record-circle-outline` or `link-circle` in the top details instead,
+  matching its grid marker. Current programme cells now shade only their elapsed portion, creating a continuous
+  visual boundary beneath the mint now marker. Offline checks and guide renders pass; not deployed.
+
+- Added a persistent top-left mute alert using Material Design Icons `volume-mute`. It replaces OpenATV's global
+  `Mute` skin before VolumeControl creates the dialog, so the same overlay remains visible across every screen
+  until the existing global mute action hides it on unmute. The mute override is independent of the optional
+  large channel banner. Offline checks and a render cover the layout; it has not been deployed.
+
+- Added **Record series** to the guide when AutoTimer is importable. It writes an enabled exact, case-sensitive
+  title rule restricted to the selected channel, leaves offsets unset so AutoTimer uses Enigma2's standard
+  margins, saves the XML and asks AutoTimer to parse the EPG. AutoTimer-scheduled events use a red Material
+  Design Icons `link-circle`; standalone timers use a red `record-circle-outline`. The bouquet
+  heading is inset to align with the channel numbers. `python3 tools/check.py` passes through `docs ok`, and the
+  affected guide renders were regenerated. None of this milestone has been deployed or exercised on a box.
 
 - Replaced the TV Guide grid's filled record-circle glyph with Material Design Icons `record-rec`, regenerated
   all five scale-specific red recording markers and re-rendered the affected guide examples. `python3 tools/check.py`
@@ -492,6 +511,6 @@ logic, skins and data handling. They prove nothing about real rendering, real tu
 4. **Plex playback**: open a film or programme, and play it with resume and the quality and subtitle settings.
 5. **Validate the new recording player on both images**, then refine it from actual playback feedback. The
    styled panel is implemented; stock resume prompts and reliable Watched/New state remain separate work.
-6. **Series link** via the AutoTimer plugin: "Record series" in the TV Guide, an exact title on one channel, and
-   a list of series in Recordings. See the README's To do list; check the AutoTimer version on the box first.
+6. **Series recording management**: list AutoTimer series rules in Recordings and provide a safe way to stop one.
+   The guide creation flow is implemented offline; verify rule creation, margins, matching and icons on a box.
 7. **Docs site**: turn on GitHub Pages for `/docs` (owner's decision), and add real box captures beside the renders.

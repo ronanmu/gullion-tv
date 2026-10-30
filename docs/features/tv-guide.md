@@ -37,11 +37,18 @@ GUIDE, the arrows, TV and FAV open this guide from live TV, in place of the box'
 
 ## Recording from the guide
 
-A programme that's set to record or recording now has a red record mark in the grid and a REC pill in its details.
-OK on a later programme offers to record it; on one already set, it offers to cancel. Programmes that have
-finished can't be recorded, so OK and REC do nothing on them.
+A programme that's set to record has a red outlined recording circle in the grid. Recordings made by an
+AutoTimer series rule use the red linked-circle mark. The same appropriate icon appears in the top details for
+a future recording; the REC pill is reserved for a programme that is actually recording now. OK on a later programme offers
+**Record this**, and also **Record series** when AutoTimer is installed on the box. A series rule matches the
+title exactly, including capital letters, and records only from the selected channel using the box's normal
+recording margins. On a programme already set to record, OK offers to cancel. Programmes that have finished
+can't be recorded, so OK and REC do nothing on them.
 
 ![A programme set to record](../images/08-guide-will-record.png)
+
+The live position is visible both as the mint marker under the time ruler and as a subtle change of background
+within every programme currently on. The portion to the left has elapsed; the portion to the right remains.
 
 ![Choosing to record](../images/10-guide-record-choice.png)
 

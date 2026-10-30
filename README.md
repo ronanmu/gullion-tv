@@ -63,13 +63,9 @@ assistant, working from the owner's requirements and review.
 
 ## To do
 
-- **Series link.** "Record series" in the TV Guide, for every upcoming episode of a programme on one channel
-  (Coronation Street on ITV1, say). enigma2 has no series link of its own, so this would create a rule for the
-  AutoTimer plugin (installed from the OpenATV feeds if it isn't already): the exact title only, one channel only
-  so +1 and regional versions aren't recorded too, and episodes already recorded or set to record skipped.
-  Freesat descriptions are sometimes missing or the same every week, so spotting repeats won't be perfect.
-  Recordings would list the series being recorded, with a way to stop one. Needs checking on a box for the
-  AutoTimer version.
+- **Series recording management.** The TV Guide can now create exact-title, one-channel AutoTimer rules when
+  AutoTimer is installed. Add a list of those series in Recordings, with a way to stop one, and verify the
+  installed AutoTimer version and duplicate handling on a box.
 - Opening a film or programme from Plex and playing it.
 - Verify the new Gullion TV recording playback controls on both boxes (implemented; offline checks and renders only).
 

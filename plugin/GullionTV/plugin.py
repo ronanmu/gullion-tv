@@ -8,6 +8,12 @@ def sessionstart(reason, session=None, **kwargs):
 	if reason == 0 and session is not None:
 		from .hook import install
 		install()
+		if config.plugins.gulliontv.enabled.value:
+			try:
+				from .tv import mute
+				mute.install()
+			except Exception as error:
+				print("[GullionTV] mute alert not installed: %s" % error)
 		try:
 			from . import lock
 			lock.install(session)

@@ -2,7 +2,8 @@ These icons are drawn by tools/make_images.py from two icon fonts:
 
 - Material Symbols (Outlined) by Google, used under the Apache License 2.0 in LICENSE.
   https://github.com/google/material-design-icons
-- live_tv, tv_guide and record are television-classic, television-guide and record-circle from the Material Design
+- live_tv, tv_guide, record, series and volume_mute are television-classic, television-guide,
+  record-circle-outline, link-circle and volume-mute from the Material Design
   Icons community set by Pictogrammers, used under the Pictogrammers Free License in
   LICENSE-mdi (the icons themselves are Apache 2.0). https://pictogrammers.com/library/mdi/
 - rec_pill's REC is drawn in Open Sans Bold, from Google Fonts, under the SIL Open Font License.

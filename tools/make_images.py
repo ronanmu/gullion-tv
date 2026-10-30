@@ -42,11 +42,12 @@ CARD_ICONS = {"recordings": "video_library", "webcams": "videocam"}
 # icons are Apache 2.0) instead. Fetch @mdi/font once and pass its folder as MDI:
 #   https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/  (fonts/*.ttf and css/*.css)
 MDI_CARD_ICONS = {"live_tv": "television-classic", "tv_guide": "television-guide"}
+MDI_UI_ICONS = {"volume_mute": "volume-mute"}
 CARD_SIZES = (36, 48, 72, 144)
 # The colour-button hints: a filled circle in each key's colour, 24 px at 1920 wide.
 KEY_COLOURS = {"red": theme.KEY_RED, "green": theme.KEY_GREEN, "yellow": theme.KEY_YELLOW, "blue": theme.KEY_BLUE}
 KEY_SIZES = (12, 16, 24, 48)
-# A recording in the guide: MDI's record-rec in red, 26 px at 1920 wide (list cells can't scale pictures).
+# A recording in the guide: MDI's record-circle-outline in red, 26 px at 1920 wide (list cells can't scale pictures).
 REC_SIZES = (10, 13, 17, 26, 52)
 
 
@@ -80,7 +81,7 @@ def mdi_codepoints(css):
 		re.findall(r'\.mdi-([a-z0-9-]+)::before\s*\{\s*content:\s*"\\([0-9A-Fa-f]+)"', open(css).read()))
 
 
-def mdi_icons(folder, out):
+def mdi_icons(folder, out, rec_font_path=None):
 	from PIL import ImageFont
 	font_path = os.path.join(folder, "materialdesignicons-webfont.ttf")
 	codepoints = mdi_codepoints(os.path.join(folder, "materialdesignicons.css"))
@@ -98,10 +99,26 @@ def mdi_icons(folder, out):
 		big = size * SUPERSAMPLE
 		font = ImageFont.truetype(font_path, big)
 		image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["record-rec"]), font=font, fill=_rgba(theme.KEY_RED), anchor="mm")
+		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["record-circle-outline"]), font=font,
+			fill=_rgba(theme.KEY_RED), anchor="mm")
 		path = os.path.join(out, "record_%d.png" % size)
 		image.resize((size, size), Image.LANCZOS).save(path)
 		print(path)
+		image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["link-circle"]), font=font, fill=_rgba(theme.KEY_RED), anchor="mm")
+		path = os.path.join(out, "series_%d.png" % size)
+		image.resize((size, size), Image.LANCZOS).save(path)
+		print(path)
+	for size in ICON_SIZES:
+		big = size * SUPERSAMPLE
+		font = ImageFont.truetype(font_path, big)
+		for name, symbol in sorted(MDI_UI_ICONS.items()):
+			image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+			ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints[symbol]), font=font,
+				fill=_rgba(theme.TEXT), anchor="mm")
+			path = os.path.join(out, "%s_%d.png" % (name, size))
+			image.resize((size, size), Image.LANCZOS).save(path)
+			print(path)
 
 
 def material_icons(folder, out):
@@ -149,5 +166,5 @@ if __name__ == "__main__":
 	if not os.environ.get("MATERIAL") or not os.environ.get("MDI") or not os.environ.get("REC_FONT"):
 		sys.exit("Set MATERIAL and MDI to the icon font folders and REC_FONT to a bold font; see the notes above ICONS, MDI_CARD_ICONS and PILL.")
 	material_icons(os.environ["MATERIAL"], os.path.join(OUT, "icons"))
-	mdi_icons(os.environ["MDI"], os.path.join(OUT, "icons"))
+	mdi_icons(os.environ["MDI"], os.path.join(OUT, "icons"), os.environ["REC_FONT"])
 	pills(os.path.join(OUT, "icons"), os.environ["REC_FONT"])

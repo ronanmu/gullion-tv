@@ -12,7 +12,7 @@ from Components.Pixmap import Pixmap
 from Screens.Screen import Screen
 from Tools.LoadPixmap import LoadPixmap
 
-from . import epg, picon, serviceinfo
+from . import epg, picon, series, serviceinfo
 from .. import theme
 from ..recordings import store as recordings
 from ..ui.popups import EventDetails, GullionChoice
@@ -41,6 +41,11 @@ REC_ICON_SIZES = (10, 13, 17, 26, 52)  # made by tools/make_images.py, one per c
 def rec_icon_path():
 	"""The red record mark at the size nearest the skin's: list cells can't scale a picture."""
 	return icons.icon_path("record", ICON, REC_ICON_SIZES)
+
+
+def series_icon_path():
+	"""The red series-link mark at the nearest fixed picture size."""
+	return icons.icon_path("series", ICON, REC_ICON_SIZES)
 
 _FLAGS = RT_HALIGN_LEFT | RT_VALIGN_CENTER
 
@@ -101,7 +106,7 @@ class Guide(Screen):
 	skin = """
 	<screen name="GullionGuide" position="0,0" size="1920,1080" flags="wfNoBorder" backgroundColor="%(bg)s">
 		<eLabel text="TV Guide" position="90,44" size="500,60" font="Regular;44" foregroundColor="%(text)s" transparent="1" />
-		<widget name="list_name" position="90,512" size="380,40" font="Regular;28" noWrap="1" foregroundColor="%(text)s" transparent="1" />
+		<widget name="list_name" position="110,512" size="360,40" font="Regular;28" noWrap="1" foregroundColor="%(text)s" transparent="1" />
 		<widget source="global.CurrentTime" render="Label" position="1330,50" size="500,50" font="Regular;32" halign="right" foregroundColor="%(text)s" transparent="1">
 			<convert type="ClockToText">Format:%%a %%d %%b   %%H:%%M</convert>
 		</widget>
@@ -113,6 +118,7 @@ class Guide(Screen):
 		%(code_icons)s
 		<widget name="ev_time" position="340,212" size="660,42" font="Regular;30" foregroundColor="%(accent)s" transparent="1" />
 		<widget name="rec_pill" position="1224,213" size="96,40" alphatest="blend" zPosition="2" />
+		<widget name="record_mark" position="1246,207" size="52,52" alphatest="blend" zPosition="2" />
 		<widget name="ev_desc" position="340,264" size="980,110" font="Regular;28" foregroundColor="%(text)s" transparent="1" />
 
 		<widget source="session.VideoPicture" render="Pig" position="1370,150" size="460,259" zPosition="1" backgroundColor="#ff000000" />
@@ -149,7 +155,12 @@ class Guide(Screen):
 			self["code%d" % i] = Pixmap()
 		self["picon"] = Pixmap()
 		self["rec_pill"] = Pixmap()  # REC is drawn into the picture, in bold
+		self["record_mark"] = Pixmap()
 		self.rec_icon = LoadPixmap(rec_icon_path(), cached=True)
+		self.series_icon = LoadPixmap(series_icon_path(), cached=True)
+		self.detail_rec_icon = LoadPixmap(icons.icon_path("record", 52, REC_ICON_SIZES), cached=True)
+		self.detail_series_icon = LoadPixmap(icons.icon_path("series", 52, REC_ICON_SIZES), cached=True)
+		self.series_available = series.available()
 		self.picons = tiles.Pictures(220, 132)
 		for i in range(DAYS):
 			self["day%d" % i] = Label()
@@ -417,7 +428,10 @@ class Guide(Screen):
 			self.cannot_record()
 			return
 		else:
-			options = [("Record this", "record"), ("Cancel", None)]
+			options = [("Record this", "record")]
+			if self.series_available:
+				options.append(("Record series", "series"))
+			options.append(("Cancel", None))
 		self.session.openWithCallback(self.choice_made, GullionChoice, event.title, options, self.when(event))
 
 	def record_key(self):
@@ -450,6 +464,12 @@ class Guide(Screen):
 			elif not epg.add_timer(self.session, ref, event):
 				self.session.open(GullionChoice, "Couldn't set this recording",
 					[("OK", None)], "Another recording at the same time is in the way.")
+		elif choice == "series":
+			try:
+				series.add(event.title, ref)
+			except Exception:
+				self.session.open(GullionChoice, "Couldn't record this series",
+					[("OK", None)], "Ask Tech Support to check AutoTimer.")
 		elif choice == "remove":
 			timer = epg.find_timer(self.session, ref, event)
 			if timer:
@@ -546,18 +566,29 @@ class Guide(Screen):
 				bg, fg = theme.CELL_PAST, theme.TEXT_MUTED
 			else:
 				bg, fg = row_bg, theme.TEXT
-			entries.append(_text(left, 0, width, CELL_H, "", 0, fg, bg))
+			if event.begin < self.now < event.end:
+				elapsed = max(0, min(width, int((self.now - max(event.begin, self.window_start)) * PX_PER_SECOND)))
+				if elapsed:
+					elapsed_bg = theme.CELL_ELAPSED_SELECTED if chosen_row and event.eid == self.selected_eid else theme.CELL_PAST
+					entries.append(_text(left, 0, elapsed, CELL_H, "", 0, fg, elapsed_bg))
+				if elapsed < width:
+					entries.append(_text(left + elapsed, 0, width - elapsed, CELL_H, "", 0, fg, bg))
+			else:
+				entries.append(_text(left, 0, width, CELL_H, "", 0, fg, bg))
 			inset = 16
-			if epg.find_timer(self.session, channel.ref, event):
+			timer = epg.find_timer(self.session, channel.ref, event)
+			if timer:
 				top = (CELL_H - ICON) // 2
-				if self.rec_icon:
+				series_recording = bool(getattr(timer, "isAutoTimer", False)) or series.matches(event.title, channel.ref)
+				mark = self.series_icon if series_recording else self.rec_icon
+				if mark:
 					entries.append(MultiContentEntryPixmapAlphaBlend(pos=(scale.px(left + inset), scale.px(top)),
-						size=(scale.px(ICON), scale.px(ICON)), png=self.rec_icon))
+						size=(scale.px(ICON), scale.px(ICON)), png=mark))
 				else:
 					entries.append(_text(left + inset, top, ICON, ICON, "", 0, fg, theme.KEY_RED))
 				inset += ICON + 12
 			if width > inset + 24:
-				entries.append(_text(left + inset, 0, width - inset - 8, CELL_H, event.title, 0, fg, bg))
+				entries.append(_overlay_text(left + inset, 0, width - inset - 8, CELL_H, event.title, 0, fg))
 		return entries
 
 	def draw_details(self):
@@ -570,7 +601,7 @@ class Guide(Screen):
 			self["ev_title"].setText("No programme information" if channel else "No channels yet")
 			for name in ("ev_time", "ev_desc"):
 				self[name].setText("")
-			self.draw_rec(False)
+			self.draw_record_state(None, None, channel)
 			self.draw_codes("")
 			return
 		self["ev_title"].setText(event.title)
@@ -578,17 +609,31 @@ class Guide(Screen):
 		# "(HD, S)" and "[S,AD] [HD]" become icons rather than text.
 		self["ev_desc"].setText(serviceinfo.split_codes(event.description)[0])
 		self.draw_codes(event.description)
-		self.draw_rec(not event.over(self.now) and bool(epg.find_timer(self.session, channel.ref, event)))
+		timer = epg.find_timer(self.session, channel.ref, event)
+		self.draw_record_state(event, timer, channel)
 
-	def draw_rec(self, recording):
-		"""A red REC pill for a programme that's recording or set to record."""
+	def draw_record_state(self, event, timer, channel):
+		"""REC while recording; the timer type's icon while waiting to record."""
 		pill = self["rec_pill"]
-		if recording and pill.instance is not None:
+		mark = self["record_mark"]
+		running = bool(event and timer and event.airing(self.now))
+		is_running = getattr(timer, "isRunning", None) if timer else None
+		if running and callable(is_running):
+			running = bool(is_running())
+		if running and pill.instance is not None:
 			pill.instance.setPixmap(LoadPixmap(icons.rec_pill(), cached=True))
-		if recording:
+		if running:
 			pill.show()
 		else:
 			pill.hide()
+		waiting = bool(event and timer and event.begin > self.now)
+		if waiting and mark.instance is not None:
+			linked = bool(getattr(timer, "isAutoTimer", False)) or series.matches(event.title, channel.ref)
+			mark.instance.setPixmap(self.detail_series_icon if linked else self.detail_rec_icon)
+		if waiting:
+			mark.show()
+		else:
+			mark.hide()
 
 	def draw_codes(self, description):
 		"""Packed from the right, in the broadcaster's order."""
@@ -630,6 +675,12 @@ def _text(x, y, w, h, text, font, fg, bg, flags=_FLAGS):
 	"""A grid cell, laid out at the design size and scaled to the skin."""
 	return MultiContentEntryText(pos=(scale.px(x), scale.px(y)), size=(scale.px(w), scale.px(h)), font=font, flags=flags, text=text,
 		color=theme.rgb(fg), color_sel=theme.rgb(fg), backcolor=theme.rgb(bg), backcolor_sel=theme.rgb(bg))
+
+
+def _overlay_text(x, y, w, h, text, font, fg, flags=_FLAGS):
+	"""Text over backgrounds already drawn into a guide cell."""
+	return MultiContentEntryText(pos=(scale.px(x), scale.px(y)), size=(scale.px(w), scale.px(h)), font=font,
+		flags=flags, text=text, color=theme.rgb(fg), color_sel=theme.rgb(fg))
 
 
 def _colour(widget, background, foreground):

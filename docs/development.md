@@ -34,6 +34,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
     epg.py               channel lists, programme data, record timers and channel switching
     picon.py             finds the picon (channel logo) file for any channel
     infobar.py           the channel banner, number entry and volume pop-ups, swapped in at start-up
+    mute.py              persistent global mute alert skin, swapped in before VolumeControl starts
     converter.py         GullionServiceInfo skin converter: Number, Name, Remaining, Icon:N
     renderer.py          GullionIcon skin renderer, which draws the banner's icons
     serviceinfo.py       HD, delivery, access codes, signal details and channel numbers
