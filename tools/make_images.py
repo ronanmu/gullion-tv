@@ -46,7 +46,7 @@ CARD_SIZES = (36, 48, 72, 144)
 # The colour-button hints: a filled circle in each key's colour, 24 px at 1920 wide.
 KEY_COLOURS = {"red": theme.KEY_RED, "green": theme.KEY_GREEN, "yellow": theme.KEY_YELLOW, "blue": theme.KEY_BLUE}
 KEY_SIZES = (12, 16, 24, 48)
-# A recording in the guide: MDI's record-circle in red, 26 px at 1920 wide (list cells can't scale pictures).
+# A recording in the guide: MDI's record-rec in red, 26 px at 1920 wide (list cells can't scale pictures).
 REC_SIZES = (10, 13, 17, 26, 52)
 
 
@@ -98,7 +98,7 @@ def mdi_icons(folder, out):
 		big = size * SUPERSAMPLE
 		font = ImageFont.truetype(font_path, big)
 		image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["record-circle"]), font=font, fill=_rgba(theme.KEY_RED), anchor="mm")
+		ImageDraw.Draw(image).text((big / 2.0, big / 2.0), chr(codepoints["record-rec"]), font=font, fill=_rgba(theme.KEY_RED), anchor="mm")
 		path = os.path.join(out, "record_%d.png" % size)
 		image.resize((size, size), Image.LANCZOS).save(path)
 		print(path)

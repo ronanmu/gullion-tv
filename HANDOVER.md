@@ -239,7 +239,13 @@ Driving the box remotely for testing uses OpenWebif:
 
 ## 7. Test results at handover
 
-Latest milestone, 28 October 2026:
+Latest milestone, 30 October 2026:
+
+- Replaced the TV Guide grid's filled record-circle glyph with Material Design Icons `record-rec`, regenerated
+  all five scale-specific red recording markers and re-rendered the affected guide examples. `python3 tools/check.py`
+  passes through `docs ok`; this icon change has not been deployed.
+
+Previous milestone, 28 October 2026:
 
 - Diagnosed why recording previews never appeared on the GigaBlue: ffmpeg was given a temporary output ending
   `.jpg.part`, so ffmpeg 8 could not infer an output format. The temporary name now ends `.part.jpg`, retaining a
