@@ -74,8 +74,8 @@ have been removed.
 ## When the box can't record
 
 Each time it opens, the guide checks the recording drive: plugged in, writable, and at least 2 GB free. If the
-box can't record, the REC hint and record options go, and REC explains why. Under 10 GB free, it warns that space
-is low.
+box can't record, the REC hint and record options go, and a warning appears at the bottom right. Under 10 GB free,
+the warning says that space is low.
 
 ![No recording drive](../images/30-guide-no-recording-drive.png)
 

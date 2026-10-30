@@ -94,8 +94,9 @@ opened[:] = []
 listener = e2stubs.InfoBarAudioSelection()
 listener.session = types.SimpleNamespace(open=lambda cls, *a: opened.append((cls.__name__,) + a[1:]))
 e2stubs.InfoBarAudioSelection.audioSelection(listener)
+e2stubs.InfoBarAudioSelection.yellow_key(listener)
 e2stubs.InfoBarSubtitleSupport.subtitleSelection(listener)
-assert opened == [("SoundAndSubtitles", "audio"), ("SoundAndSubtitles", "subtitles")], opened
+assert opened == [("SoundAndSubtitles", "audio"), ("SoundAndSubtitles", "audio"), ("SoundAndSubtitles", "subtitles")], opened
 # GUIDE, the arrows, TV and FAV on live TV open Gullion TV's guide, not the stock ones.
 opened[:] = []
 zapper = e2stubs.InfoBarChannelSelection()
@@ -104,10 +105,14 @@ modes = []
 zapper.servicelist = types.SimpleNamespace(setModeTv=lambda: modes.append("tv"))
 Screens.InfoBar.InfoBar.instance = zapper
 e2stubs.InfoBarChannelSelection.switchChannelUp(zapper)
+e2stubs.InfoBarChannelSelection.UpPressed(zapper)
+e2stubs.InfoBarChannelSelection.DownPressed(zapper)
+e2stubs.InfoBarChannelSelection.LeftPressed(zapper)
+e2stubs.InfoBarChannelSelection.RightPressed(zapper)
 e2stubs.InfoBarChannelSelection.showTvChannelList(zapper, True)
 e2stubs.InfoBarEPG.EPGPressed(zapper)
-assert opened == ["Guide", "Guide", "Guide"] and not hasattr(zapper, "opened"), opened
-assert modes == ["tv", "tv", "tv"], "the channel list goes back to TV mode, as the stock TV key does"
+assert opened == ["Guide"] * 7 and not hasattr(zapper, "opened"), opened
+assert modes == ["tv"] * 7, "the channel list goes back to TV mode, as the stock TV key does"
 config.plugins.gulliontv.enabled.value = False
 e2stubs.InfoBarChannelSelection.switchChannelUp(zapper)
 assert zapper.opened == "stock channel list", "the stock list while Gullion TV is off"
@@ -241,7 +246,13 @@ for widget in ET.fromstring(home.GullionHome.skin).iter("widget"):
 	assert name is None or name in screen, "skin widget %s missing from screen" % name
 screen.layout()
 screen.refresh()
-assert screen["live_text"].text == "LIVE" and screen["live_tag"].visible, "the preview says LIVE, without the channel name"
+assert "live_tag" not in screen and "live_dot" not in screen and "live_text" not in screen, "Home leaves the preview unobstructed"
+assert not screen["rec_pill"].visible and screen["recording_now"].text == ""
+session.nav.RecordTimer = types.SimpleNamespace(timer_list=[types.SimpleNamespace(state=2,
+	service_ref=types.SimpleNamespace(ref=types.SimpleNamespace(name="BBC One NI")), name="EastEnders")])
+screen.refresh()
+assert screen["rec_pill"].visible and screen["rec_pill"].instance.pixmap.endswith("rec_pill_96x40.png")
+assert screen["recording_now"].text == "BBC One NI  ·  EastEnders", "Home identifies the programme recording now"
 for _ in range(5):
 	screen.right()
 assert screen.selected == 3
@@ -797,9 +808,19 @@ for widget in element.iter("widget"):
 	if widget.get("render") == "Pixmap":
 		assert os.path.isfile(widget.get("pixmap")), widget.get("pixmap")
 assert len([w for w in element.iter("widget") if w.get("render") == "GullionIcon"]) == banner.ICON_SLOTS
-for name in ("NumberZap", "Volume", "Mute"):
+banner_rec = next(w for w in element.iter("widget") if w.get("pixmap") == ui_icons.rec_pill())
+assert int(banner_rec.get("position").split(",")[0]) == banner.REC_X
+icon_left = min(int(w.get("position").split(",")[0]) for w in element.iter("widget") if w.get("render") == "GullionIcon")
+assert banner.REC_X + 96 < icon_left, "REC begins the right-aligned status group, before icons and signal"
+for name in banner.NUMBER_ZAP_NAMES + ("Volume", "Mute"):
 	popup, path = skin.dom_screens[name]
 	assert popup.get("name") == name and path.endswith("GullionTV")
+number_picon = skin.dom_screens["NumberZapPicon"][0]
+assert any(widget.get("source") == "Service" and widget.get("render") == "Picon" for widget in number_picon.iter("widget")), "picon number entry shows the target channel logo"
+picon_widget = next(widget for widget in number_picon.iter("widget") if widget.get("render") == "Picon")
+assert any(convert.get("type") == "ServiceName" and convert.text == "Reference" for convert in picon_widget.iter("convert")), "OpenATV 6.4's ServiceEvent source must be converted to a reference for Picon"
+number_widget = next(widget for widget in number_picon.iter("widget") if widget.get("name") == "number")
+assert int(number_widget.get("position").split(",")[0]) < int(picon_widget.get("position").split(",")[0]), "number entry keeps text left and the picon right"
 print("infobar ok")
 
 # Webcams: the config file.
@@ -1454,7 +1475,7 @@ g = guide.Guide(session)
 g.layout()
 assert g.storage == recordings.MISSING
 assert "REC: record" not in g["footer"].text, "no REC hint when the box cannot record"
-assert g["footer"].text.endswith("BACK: home") and g["storage_note"].text == "Recording isn't available"
+assert g["footer"].text.endswith("BACK: home") and g["storage_note"].text == "Recording is not available"
 g.record_key()
 assert session.opened[-1][:2] == ("GullionChoice", "This box can't record right now")
 g.choice_made("record")

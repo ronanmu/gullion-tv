@@ -25,6 +25,7 @@ TITLE_Y = PANEL_Y - 76  # the channel number and name, above the panel
 # The signal gauge sits at the right end of the bottom line; the icons pack up against it.
 SIGNAL_X = 1640
 ICONS_RIGHT = SIGNAL_X - 20
+REC_X = ICONS_RIGHT - ICON_SLOTS * 52 - 116
 
 
 def _icons_skin():
@@ -77,7 +78,7 @@ SKIN = """
 	</widget>
 
 	<!-- A red REC pill (REC is part of the picture) while this channel is being recorded. -->
-	<widget source="session.CurrentService" render="Pixmap" pixmap="%(rec_pill)s" position="370,986" size="96,40" alphatest="blend" zPosition="2">
+	<widget source="session.CurrentService" render="Pixmap" pixmap="%(rec_pill)s" position="%(rec_x)d,986" size="96,40" alphatest="blend" zPosition="2">
 		<convert type="GullionServiceInfo">IsRecording</convert>
 		<convert type="ConditionalShowHide" />
 	</widget>
@@ -92,18 +93,39 @@ SKIN = """
 	"panel_y": PANEL_Y, "panel_h": PANEL_H, "title_y": TITLE_Y, "white": "#00ffffff", "outline": "#00000000", "panel": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED,
 	"divider": theme.DIVIDER, "accent": theme.ACCENT, "red": theme.KEY_RED,
 	"light": theme.CARD_SELECTED, "card": theme.CARD, "on_light": theme.TEXT_ON_SELECTED,
-	"icons": _icons_skin(), "rec_pill": icons.rec_pill(), "signal_x": SIGNAL_X, "signal_text_x": SIGNAL_X + 114, "live": theme.LIVE,
+	"icons": _icons_skin(), "rec_pill": icons.rec_pill(), "rec_x": REC_X,
+	"signal_x": SIGNAL_X, "signal_text_x": SIGNAL_X + 114, "live": theme.LIVE,
 }
 
 # Typing a channel number on live TV. The widget names are the image's own:
 # number on every image, servicename where it shows the channel's name.
-NUMBER_ZAP = """
-<screen name="NumberZap" position="1400,60" size="460,210" flags="wfNoBorder" backgroundColor="%(panel)s">
-	%(frame)s
-	<eLabel text="Channel" position="36,26" size="388,34" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
+def _number_zap_skin(name, picon=False):
+	"""The same quick selector under each name used by supported OpenATV images."""
+	if picon:
+		body = """
+	<widget source="Service" render="Picon" position="282,58" size="150,100" alphatest="blend">
+		<convert type="ServiceName">Reference</convert>
+	</widget>
+	<widget name="number" position="36,58" size="222,78" font="Regular;68" valign="center" foregroundColor="%(text)s" transparent="1" />
+	<widget name="servicename" position="36,140" size="222,44" font="Regular;27" valign="center" noWrap="1" foregroundColor="%(text)s" transparent="1" conditional="servicename" />
+"""
+	else:
+		body = """
 	<widget name="number" position="36,62" size="388,90" font="Regular;80" valign="center" foregroundColor="%(text)s" transparent="1" />
 	<widget name="servicename" position="36,152" size="388,40" font="Regular;30" valign="center" foregroundColor="%(text)s" transparent="1" conditional="servicename" />
-</screen>""" % {"panel": theme.BACKGROUND, "frame": theme.frame(460, 210), "text": theme.TEXT, "muted": theme.TEXT_MUTED}
+"""
+	return """
+<screen name="%(name)s" position="1400,60" size="460,210" flags="wfNoBorder" backgroundColor="%(panel)s">
+	%(frame)s
+	<eLabel text="Channel" position="36,26" size="388,34" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
+	%(body)s
+</screen>""" % {"name": name, "panel": theme.BACKGROUND, "frame": theme.frame(460, 210), "body": body % {"text": theme.TEXT}, "text": theme.TEXT, "muted": theme.TEXT_MUTED}
+
+
+NUMBER_ZAP_NAMES = ("NumberZap", "NumberZapWithName", "NumberZapWithNames", "NumberZapPicon")
+NUMBER_ZAPS = [_number_zap_skin(name, name == "NumberZapPicon") for name in NUMBER_ZAP_NAMES]
+# Kept for preview and checks that render the common screen directly.
+NUMBER_ZAP = NUMBER_ZAPS[-1]
 
 # The volume pop-up: Volume is the bar; VolumeText, the number, isn't on every image.
 VOLUME = """
@@ -135,7 +157,7 @@ def install():
 	screens = getattr(skin, "domScreens", None)
 	if screens is None:
 		screens = skin.dom_screens
-	for text in (SKIN, NUMBER_ZAP, VOLUME):
+	for text in [SKIN] + NUMBER_ZAPS + [VOLUME]:
 		element = ET.fromstring(scale.skin(text))
 		name = element.get("name")
 		existing = screens.get(name, screens.get("InfoBar"))

@@ -20,7 +20,7 @@ from .ui.placeholder import ComingSoon
 from .ui.background import Background
 from .weather import forecast
 from .webcams.screens import WebcamList
-from .ui import icons, live, scale, tiles
+from .ui import icons, scale, tiles
 
 # (title, subtitle, remote colour key, colour) in on-screen order. The colours run
 # left to right in the order they sit on the remote.
@@ -67,20 +67,19 @@ class GullionHome(Screen):
 		<eLabel position="90,130" size="1740,1" backgroundColor="%(divider)s" />
 
 		<widget source="session.VideoPicture" render="Pig" position="90,170" size="880,495" zPosition="1" backgroundColor="#ff000000" />
-		%(live)s
-
 		<widget name="now_label" position="1030,230" size="800,40" font="Regular;28" foregroundColor="%(muted)s" transparent="1" />
 		<widget name="event_name" position="1030,276" size="800,140" font="Regular;54" foregroundColor="%(text)s" transparent="1" />
 		<widget name="event_time" position="1030,430" size="800,44" font="Regular;32" foregroundColor="%(text)s" transparent="1" />
 		<widget name="progress" position="1030,492" size="800,6" foregroundColor="%(text)s" backgroundColor="%(divider)s" borderWidth="0" />
 		<widget name="event_next" position="1030,530" size="800,44" font="Regular;30" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="rec_pill" position="1030,592" size="96,40" alphatest="blend" zPosition="2" />
+		<widget name="recording_now" position="1146,584" size="684,56" font="Regular;30" valign="center" noWrap="1" foregroundColor="%(text)s" transparent="1" />
 		%(cards)s
 		<widget name="hint" position="90,1010" size="1000,40" font="Regular;26" foregroundColor="%(muted)s" transparent="1" />
 		<widget name="settings" position="1630,1000" size="200,52" font="Regular;28" halign="center" valign="center" foregroundColor="%(muted)s" backgroundColor="%(bg)s" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "divider": theme.DIVIDER,
 		"cards": "".join(_card_skin(i, card[2]) for i, card in enumerate(CARDS)),
-		"live": live.skin("live", 110, 605),
 	}
 
 	skin = scale.skin(skin)
@@ -94,11 +93,12 @@ class GullionHome(Screen):
 		self["weather_icon"] = Pixmap()
 		self.weather_icons = tiles.Pictures(48, 48, background=theme.BACKGROUND)
 		self.background = Background()
-		live.add_widgets(self, "live")
 		self["now_label"] = Label()
 		self["event_name"] = Label()
 		self["event_time"] = Label()
 		self["event_next"] = Label()
+		self["rec_pill"] = Pixmap()
+		self["recording_now"] = Label()
 		self["progress"] = ProgressBar()
 		self["hint"] = Label("OK to open   ·   BACK to return to TV")
 		self["settings"] = Label("Settings")
@@ -252,8 +252,6 @@ class GullionHome(Screen):
 		self["date"].setText("%s %d %s" % (time.strftime("%A", local), local.tm_mday, time.strftime("%B", local)))
 
 		channel = self.channel_name()
-		# The channel's name is on the right already; the picture just says it's live.
-		live.show(self, "live", bool(channel))
 		self["now_label"].setText("On now · %s" % channel if channel else "On now")
 
 		info = self.service_info()
@@ -275,6 +273,30 @@ class GullionHome(Screen):
 			self["event_next"].setText("Next · %s  %s" % (_clock(upcoming.getBeginTime()), upcoming.getEventName()))
 		else:
 			self["event_next"].setText("")
+		self.refresh_recording()
+
+	def refresh_recording(self):
+		"""Show the first programme the box is actively recording."""
+		timers = getattr(getattr(self.session.nav, "RecordTimer", None), "timer_list", [])
+		running = None
+		for timer in timers:
+			is_running = getattr(timer, "isRunning", None)
+			if (callable(is_running) and is_running()) or getattr(timer, "state", None) == 2:
+				running = timer
+				break
+		pill = self["rec_pill"]
+		if running is None:
+			pill.hide()
+			self["recording_now"].setText("")
+			return
+		if pill.instance is not None:
+			pill.instance.setPixmap(LoadPixmap(icons.rec_pill(), cached=True))
+		pill.show()
+		ref = getattr(getattr(running, "service_ref", None), "ref", None)
+		channel = ServiceReference(ref).getServiceName() if ref is not None else ""
+		channel = channel.replace("\xc2\x86", "").replace("\xc2\x87", "")
+		programme = getattr(running, "name", "") or "Programme"
+		self["recording_now"].setText("  ·  ".join(item for item in (channel, programme) if item))
 
 	def service_info(self):
 		service = self.session.nav.getCurrentService()

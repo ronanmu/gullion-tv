@@ -226,6 +226,18 @@ class InfoBarChannelSelection(object):
 	def switchChannelUp(self):
 		self.opened = "stock channel list"
 
+	def UpPressed(self):
+		self.opened = "stock quick zap"
+
+	def DownPressed(self):
+		self.opened = "stock quick zap"
+
+	def LeftPressed(self):
+		self.opened = "stock quick zap"
+
+	def RightPressed(self):
+		self.opened = "stock quick zap"
+
 	def showTvChannelList(self, zap=False):
 		self.opened = "stock channel list"
 
@@ -244,6 +256,9 @@ class InfoBarInstantRecord(object):
 class InfoBarAudioSelection(object):
 	def audioSelection(self):
 		self.opened = "stock audio"
+
+	def yellow_key(self):
+		self.opened = "stock yellow"
 
 
 class InfoBarSubtitleSupport(object):

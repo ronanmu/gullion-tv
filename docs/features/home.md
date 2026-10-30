@@ -27,8 +27,9 @@ The cards are in the same order as the remote's colour buttons, and each colour 
 
 ## The live preview
 
-The picture on the left is the channel that was on, with a red LIVE marker. Beside it are the programme on now,
-how far through it is, and what's on next.
+The picture on the left is the channel that was on. Beside it are the programme on now,
+how far through it is, and what's on next. If the box is recording, a REC pill underneath identifies the channel
+and programme being recorded, even when another channel is in the live preview.
 
 ## Weather
 

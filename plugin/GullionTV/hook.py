@@ -18,6 +18,7 @@ _original_main_menu = getattr(InfoBarGenerics.InfoBarMenu, _METHOD)
 _original_info = getattr(getattr(InfoBarGenerics, "InfoBarEPG", None), "InfoPressed", None)
 _original_toggle = getattr(getattr(InfoBarGenerics, "InfoBarShowHide", None), "toggleShow", None)
 _original_audio = getattr(getattr(InfoBarGenerics, "InfoBarAudioSelection", None), "audioSelection", None)
+_original_yellow = getattr(getattr(InfoBarGenerics, "InfoBarAudioSelection", None), "yellow_key", None)
 _original_subtitles = getattr(getattr(InfoBarGenerics, "InfoBarSubtitleSupport", None), "subtitleSelection", None)
 # REC on live TV. OpenATV 7.x asks its questions in keyInstantRecord (instantRecord hands over to
 # it); 6.4 asks them in instantRecord itself.
@@ -70,6 +71,8 @@ _GUIDE_KEYS = (
 	("InfoBarEPG", "EPGPressed"), ("InfoBarChannelSelection", "switchChannelUp"),
 	("InfoBarChannelSelection", "switchChannelDown"), ("InfoBarChannelSelection", "openServiceList"),
 	("InfoBarChannelSelection", "showTvChannelList"), ("InfoBar", "showTv"), ("InfoBar", "openBouquetList"),
+	("InfoBarChannelSelection", "UpPressed"), ("InfoBarChannelSelection", "DownPressed"),
+	("InfoBarChannelSelection", "LeftPressed"), ("InfoBarChannelSelection", "RightPressed"),
 )
 
 
@@ -245,6 +248,9 @@ def install():
 	if _original_audio is not None:
 		InfoBarGenerics.InfoBarAudioSelection.audioSelection = _sound_and_subtitles("audio", _original_audio)
 		rebind(_original_audio, "audioSelection")
+	if _original_yellow is not None:
+		InfoBarGenerics.InfoBarAudioSelection.yellow_key = _sound_and_subtitles("audio", _original_yellow)
+		rebind(_original_yellow, "yellow_key")
 	_install_guide_keys()
 	_quiet_record_start()
 	try:

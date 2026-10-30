@@ -15,10 +15,10 @@ The banner shows on every channel change and hides after the usual few seconds. 
 - The channel's logo (picon) is on the left.
 - A large Now line with its start time, the clock, and a bar showing how far through it is.
 - Next, with its start time, and how long is left of the programme on now.
+- A red REC pill at the start of the right-aligned status group while this channel is being recorded.
 - Icons for subtitles, audio description, sign language and repeats (from the listing), HD or 4K (nothing for
   SD), and how the channel arrives: satellite, terrestrial, cable or internet.
 - The signal strength as a gauge and a percentage.
-- A red REC pill while this channel is being recorded.
 
 ![The banner on a Freesat channel that is recording](../images/14-banner-satellite-recording.png)
 
@@ -30,7 +30,11 @@ To go back to the skin's own banner, see [Tech Support](../setup/tech-support.md
 
 ## Typing a channel number
 
-Typing a number on live TV, or in the TV Guide, goes straight to that channel.
+Typing a number on live TV, or in the TV Guide, shows Gullion TV's quick channel selector and goes straight to
+that channel. The same selector is used with the standard, channel-name and picon number-entry modes offered by
+different OpenATV versions.
+When picons are enabled on the box, the number and name stay left-aligned and the selected channel's logo sits
+on the right.
 
 ![Typing 101](../images/15d-channel-number.png)
 

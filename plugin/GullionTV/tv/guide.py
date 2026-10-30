@@ -131,8 +131,8 @@ class Guide(Screen):
 		<widget name="grid" position="%(gx)d,%(gy)d" size="%(gw)d,%(gh)d" backgroundColor="%(bg)s" scrollbarMode="showNever" transparent="1" />
 		<widget name="now_line" position="%(gx)d,%(ny)d" size="4,%(nh)d" backgroundColor="%(live)s" zPosition="5" />
 
-		<widget name="footer" position="90,1022" size="1740,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
-		<widget name="storage_note" position="340,386" size="980,36" font="Regular;24" foregroundColor="%(yellow)s" transparent="1" />
+		<widget name="footer" position="90,1022" size="1200,36" font="Regular;24" foregroundColor="%(muted)s" transparent="1" />
+		<widget name="storage_note" position="1290,1022" size="540,36" font="Regular;24" halign="right" foregroundColor="%(yellow)s" transparent="1" />
 	</screen>""" % {
 		"bg": theme.BACKGROUND, "text": theme.TEXT, "muted": theme.TEXT_MUTED, "card": theme.CARD,
 		"accent": theme.ACCENT, "red": theme.KEY_RED, "yellow": theme.KEY_YELLOW, "live": theme.LIVE,
@@ -507,7 +507,7 @@ class Guide(Screen):
 		self["storage_note"].setText({
 			recordings.LOW: "Recording space is low",
 			recordings.FULL: "The recording drive is full",
-			recordings.MISSING: "Recording isn't available",
+			recordings.MISSING: "Recording is not available",
 		}.get(self.storage, ""))
 
 	def draw_header(self):

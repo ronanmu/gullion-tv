@@ -28,7 +28,7 @@ plugin/GullionTV/        the enigma2 plugin (copied to /usr/lib/enigma2/python/P
     background.py        runs network and disk work off the screen thread
     scale.py             fits the 1920x1080 layouts to the skin's size
     icons.py             picks each Material icon at the size nearest the skin's
-    live.py              the red-dot LIVE marker on Home's preview and the webcam player
+    live.py              the red-dot LIVE marker on the webcam player
   tv/                    live TV
     guide.py             the TV Guide
     epg.py               channel lists, programme data, record timers and channel switching

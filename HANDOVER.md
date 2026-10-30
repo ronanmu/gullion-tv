@@ -1,7 +1,7 @@
 # Handover: Gullion TV
 
-This file describes the working tree in the "Add series recording and global mute display" commit. The
-experimental combined screen is preserved by the
+This file describes the working tree after `14d9042` ("Add series recording and global mute display") and the
+following local recording-status layout changes. The experimental combined screen is preserved by the
 `experimental-media-design` tag. Read [AGENTS.md](AGENTS.md) for how to work on the code, and
 [docs/](docs/README.md) for what each screen looks like and does. The experimental tree was
 deployed to the GigaBlue on 28 October 2026 after the owner said it was available; only compilation, restart and
@@ -50,7 +50,7 @@ offline checks (section 7).
 | Feature | Status |
 |---|---|
 | MENU opens Home; colour buttons open the cards | Tried on the GigaBlue |
-| Home: live preview with LIVE marker, now/next, card icons, Settings | Tried on the GigaBlue |
+| Home: unobstructed live preview, now/next, card icons, Settings | Tried on the GigaBlue and Formuler; preview badge removal verified on the Formuler, 30 October 2026 |
 | Weather line on Home (Met Éireann, Open-Meteo backup, Yr icons) | Offline checks only as far as this handover records; treat as unconfirmed on a box |
 | Tech Support PIN: chosen on first use; locks the stock menu, plugin browser, extensions, channel-list edit menu, Button setup, quick menu | Tried on the GigaBlue |
 | Channel banner: number and name above the panel, picon, Now/Next, access-code, HD/UHD and delivery icons, signal gauge, REC pill | Tried on the GigaBlue |
@@ -60,7 +60,7 @@ offline checks (section 7).
 | What's on panel (INFO, or OK twice): now, next five, live tuner details | Tried on the GigaBlue |
 | Sound and subtitles pop-up (YELLOW / AUDIO / SUBTITLE) | Tried on the GigaBlue |
 | TV Guide: grid, CH+/- paging, day and list switching, number entry, record/cancel, codes stripped into icons, record marks, drive checks | Tried on the GigaBlue |
-| TV Guide update: continuous bouquet scrolling, YELLOW list selector, padded bouquet heading, footer-only action hints, full-details icons, AutoTimer series recording | Offline checks and renders only, 30 October 2026; not deployed |
+| TV Guide update: continuous bouquet scrolling, YELLOW list selector, padded bouquet heading, footer-only action hints, full-details icons, AutoTimer series recording | Deployed to the Formuler, 30 October 2026; guide layout and bottom-right recording warning verified, tuner-dependent behavior remains untested |
 | GUIDE, arrows, TV, FAV open Gullion TV's guide instead of the stock guide and channel list | Tried on the GigaBlue |
 | REC on live TV: records now until the programme ends, no questions, no "recording started" pop-up; REC again asks Stop/Keep; STOP stops | Tried on the GigaBlue |
 | Webcams: grid, live status, churchservices.tv next service, player with LIVE marker, tile picture from a link or local file | Tried on the GigaBlue |
@@ -71,7 +71,7 @@ offline checks (section 7).
 | Experimental Media screen: All, Recorded TV, Movies on Plex and TV Shows on Plex | Preserved by `experimental-media-design`; tried on the GigaBlue with real data, 28 October 2026 |
 | Plex: linking, Home user, server choice, libraries, Films and TV programmes poster views | Offline checks against sample Plex replies only. No record of testing against a real Plex server |
 | Plex playback, opening a film or programme | **Not implemented** (shows "Playing from Plex arrives in the next update") |
-| Formuler F1 (OpenATV 6.4, Python 2.7) | Was the first test box. **Not tried since OpenATV 7.x support was added (`752022c`)**, so every later feature is untested on 6.4 |
+| Formuler F1 (OpenATV 6.4, Python 2.7) | Current tree deployed 30 October 2026; box-side compilation, Enigma2 restart and Home at 1280×720 passed. No reception, so live guide/banner and recording behavior remain untested there |
 
 ## 3. Architecture
 
@@ -242,6 +242,40 @@ Driving the box remotely for testing uses OpenWebif:
 ## 7. Test results at handover
 
 Latest milestone, 30 October 2026:
+
+- Reversed the quick selector columns at the owner's request: channel number and name remain left-aligned, while
+  the picon is anchored on the right. Preview, checks, deployment and box verification follow this milestone.
+- Added the selected channel's picon to the left side of the `NumberZapPicon` quick selector, with the number and
+  channel name grouped on the right. The first Formuler test exposed that OpenATV 6.4's `ServiceEvent` source must
+  pass through `ServiceName: Reference` before its Picon renderer; without that converter, number entry raised an
+  AttributeError and showed the image's software-problem panel. The converter is now present and covered by a
+  regression check. The corrected tree was deployed at 19:32; box-side compilation and restart passed, and
+  entering `1` displayed the real RTÉ One picon beside the number and channel name without another error.
+- The Formuler's numeric channel entry uses OpenATV 6.4's `NumberZapWithNames` or `NumberZapPicon` screen,
+  rather than the base `NumberZap` name Gullion originally replaced. Gullion now installs the same quick channel
+  selector for all three screen names. Offline checks cover each registered skin. Deployed to the Formuler at
+  19:27; box-side compilation and restart passed, and entering `1` displayed the Gullion selector with the large
+  number and RTÉ One channel name at 1280×720.
+- Removed the LIVE badge from the Home preview so it no longer covers the video. Moved TV Guide recording-drive
+  warnings to the bottom-right footer and changed the missing-drive wording to "Recording is not available".
+  Offline checks and refreshed renders passed. Deployed to the Formuler at 18:50; box-side compilation, install
+  and Enigma2 restart passed. OpenWebif captures verified both changes at 1280×720 despite the absent reception.
+- Diagnosed two Formuler/OpenATV 6.4 action-map differences. Its arrow keys bind to `UpPressed`, `DownPressed`,
+  `LeftPressed` and `RightPressed`, whose configured stock behavior quick-zaps; there is no separate QuickZap
+  plugin installed. Its YELLOW key binds to `yellow_key`, not `audioSelection`. Gullion now wraps and rebinds
+  all five legacy methods, while retaining the original handlers whenever Gullion is disabled. Offline hook
+  checks cover the old and new method names. Redeployed at 18:42: YELLOW opened Gullion Sound and subtitles with
+  English, audio description and teletext choices, and UP opened Gullion TV Guide instead of quick-zapping.
+
+- Deployed the current working tree to the Formuler at 18:35. The deploy script compiled every plugin Python
+  file with the box's interpreter and restarted Enigma2; the process remained running and MENU opened Gullion
+  Home correctly at 1280×720. The box had no reception: the preview was black and showed no programme details,
+  so the live banner's REC alignment, active-recording line, guide data and recording behavior were not tested.
+  The box's `grab?format=png&mode=all` returned an empty file, while `grab?mode=osd` returned a valid JPEG.
+
+- Moved the live banner's REC pill into the start of its right-aligned status group, immediately before the
+  programme icons and signal. Home now shows a REC pill, channel and programme beneath Next whenever any timer
+  is actively recording, refreshed every 15 seconds. Offline checks and the Home/banner renders pass; not deployed.
 
 - Clarified recording state in the TV Guide: the top REC pill now appears only when the selected programme is
   currently recording. A future timer shows `record-circle-outline` or `link-circle` in the top details instead,

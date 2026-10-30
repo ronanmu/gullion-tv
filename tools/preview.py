@@ -359,6 +359,10 @@ def render(screen, base=None, state=None):
 		if isinstance(widget, e2stubs.MenuList):
 			draw_list(image, box, widget)
 			continue
+		if el.get("render") == "Picon" and el.get("source"):
+			name = getattr(screen.get("servicename"), "text", "Channel")
+			draw_picon(draw, box, name)
+			continue
 
 		background = parse_colour(el.get("backgroundColor"))
 		foreground = parse_colour(el.get("foregroundColor") or "#00ffffff")
@@ -422,6 +426,8 @@ def home_screen(selected=0):
 		now=(SEVEN_PM, 3600, "Nationwide"),
 		upcoming=(SEVEN_PM + 3600, 1800, "Fair City"),
 	)
+	session.nav.RecordTimer = e2stubs.types.SimpleNamespace(timer_list=[e2stubs.types.SimpleNamespace(state=2,
+		service_ref=e2stubs.types.SimpleNamespace(ref=e2stubs.types.SimpleNamespace(name="BBC One NI")), name="EastEnders")])
 	screen = home.GullionHome(session)
 	screen.layout()
 	screen.refresh()
